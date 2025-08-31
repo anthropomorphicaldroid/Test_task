@@ -9,15 +9,15 @@ using Tools.EncodingHelper;
 
 namespace Tools
 {
-    public class TextImporterWindow : EditorWindow
+    public class DuplicatesFinderWindow : EditorWindow
     {
         private List<string> _strings = new();
         private Vector2 _scroll;
 
-        [MenuItem( "Tools/Text Importer" )]
+        [MenuItem( "Tools/Duplicates Finder" )]
         public static void ShowWindow()
         {
-            var wnd = GetWindow<TextImporterWindow>();
+            var wnd = GetWindow<DuplicatesFinderWindow>();
             wnd.titleContent = new GUIContent( "Duplicates finder" );
             wnd.Show();
         }
@@ -25,31 +25,9 @@ namespace Tools
 
         private void OnGUI()
         {
-            // GUILayout.Label("Text Importer", _cyrillicBoldLabelStyle);
-
-            // GUILayout.Space(5);
-
             if( GUILayout.Button( "Load File" ) )
             {
-                // Let user pick any file, then decide by extension
-                string path = EditorUtility.OpenFilePanel( "Select file", "", "xml" );
-                if( !string.IsNullOrEmpty( path ) )
-                {
-                    string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
-                    switch( ext )
-                    {
-                        case "xml":
-                            LoadFromXml( path );
-                            break;
-                        case "json":
-                            LoadFromJson( path );
-                            break;
-                        default:
-                            // Any non-xml and non-json files are treated as plain text per requirement
-                            LoadFromTxt( path );
-                            break;
-                    }
-                }
+                LoadFileDialog();
             }
 
             GUILayout.Space( 10 );
@@ -72,31 +50,7 @@ namespace Tools
 
                 if( GUILayout.Button( "Save File" ) )
                 {
-                    // One save button: pick extension by the chosen filename
-                    string path = EditorUtility.SaveFilePanel( "Save strings", "", "strings", "xml" );
-                    if( !string.IsNullOrEmpty( path ) )
-                    {
-                        string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
-                        switch( ext )
-                        {
-                            case "xml":
-                                SaveToXml( path );
-                                break;
-                            case "json":
-                                SaveToJson( path );
-                                break;
-                            case "txt":
-                            case "": // if user omits extension, default to txt
-                                if( string.IsNullOrEmpty( ext ) )
-                                    path += ".txt";
-                                SaveToTxt( path );
-                                break;
-                            default:
-                                // For any other extension, save as txt as per requirement of three formats preference
-                                SaveToTxt( path );
-                                break;
-                        }
-                    }
+                    SaveFileDialog();
                 }
 
                 GUILayout.Space( 5 );
@@ -106,12 +60,66 @@ namespace Tools
         }
 
 
+        void LoadFileDialog()
+        {
+            // Let user pick any file, then decide by extension
+            string path = EditorUtility.OpenFilePanel( "Select file", "", "xml" );
+            if( !string.IsNullOrEmpty( path ) )
+            {
+                string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
+                switch( ext )
+                {
+                    case "xml":
+                        LoadFromXml( path );
+                        break;
+                    case "json":
+                        LoadFromJson( path );
+                        break;
+                    default:
+                        // Any non-xml and non-json files are treated as plain text per requirement
+                        LoadFromTxt( path );
+                        break;
+                }
+            }
+        }
+
+
+        void SaveFileDialog()
+        {
+            // One save button: pick extension by the chosen filename
+            string path = EditorUtility.SaveFilePanel( "Save strings", "", "strings", "xml" );
+            if( !string.IsNullOrEmpty( path ) )
+            {
+                string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
+                switch( ext )
+                {
+                    case "xml":
+                        SaveToXml( path );
+                        break;
+                    case "json":
+                        SaveToJson( path );
+                        break;
+                    case "txt":
+                    case "": // if user omits extension, default to txt
+                        if( string.IsNullOrEmpty( ext ) )
+                            path += ".txt";
+                        SaveToTxt( path );
+                        break;
+                    default:
+                        // For any other extension, save as txt as per requirement of three formats preference
+                        SaveToTxt( path );
+                        break;
+                }
+            }
+        }
+
+
         // ===== Import =====
         private void LoadFromXml( string path )
         {
             try
             {
-                string xmlText = EncodingHelper.ReadAllTextAuto( path );
+                string xmlText = Encoder.ReadAllTextAuto( path );
                 using( var reader = new StringReader( xmlText ) )
                 {
                     var doc = System.Xml.Linq.XDocument.Load( reader );
@@ -132,7 +140,7 @@ namespace Tools
         {
             try
             {
-                string json = EncodingHelper.ReadAllTextAuto( path );
+                string json = Encoder.ReadAllTextAuto( path );
                 var arr = JsonUtility.FromJson<StringArrayWrapper>( json );
                 _strings = arr?.strings?.ToList() ?? new List<string>();
             }
@@ -147,7 +155,7 @@ namespace Tools
         {
             try
             {
-                var lines = EncodingHelper.ReadAllLinesAuto( path );
+                var lines = Encoder.ReadAllLinesAuto( path );
                 _strings = lines.Select( l => l.Trim() )
                                 .Where( l => !string.IsNullOrEmpty( l ) )
                                 .ToList();
