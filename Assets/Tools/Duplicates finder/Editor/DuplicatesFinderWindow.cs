@@ -128,21 +128,21 @@ namespace Tools
                 {
                     if( GUILayout.Button( "Export to XML" ) )
                     {
-                        string path = EditorUtility.SaveFilePanel( "Save as XML", "", "strings.xml", "xml" );
+                        string path = EditorUtility.SaveFilePanel( "Save as XML", "_currentFilePath", $"{_currentFileName}.xml", "xml" );
                         if( !string.IsNullOrEmpty( path ) )
                             SaveToXml( path );
                     }
 
                     if( GUILayout.Button( "Export to JSON" ) )
                     {
-                        string path = EditorUtility.SaveFilePanel( "Save as JSON", "", "strings.json", "json" );
+                        string path = EditorUtility.SaveFilePanel( "Save as JSON", "_currentFilePath", $"{_currentFileName}.json", "json" );
                         if( !string.IsNullOrEmpty( path ) )
                             SaveToJson( path );
                     }
 
                     if( GUILayout.Button( "Export to TXT" ) )
                     {
-                        string path = EditorUtility.SaveFilePanel( "Save as TXT", "", "strings.txt", "txt" );
+                        string path = EditorUtility.SaveFilePanel( "Save as TXT", "_currentFilePath", $"{_currentFileName}.txt", "txt" );
                         if( !string.IsNullOrEmpty( path ) )
                             SaveToTxt( path );
                     }
