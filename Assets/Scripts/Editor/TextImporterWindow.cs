@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
@@ -14,99 +15,50 @@ namespace Tools
         private List<string> _strings = new();
         private Vector2 _scroll;
 
-        private GUIStyle _europeanStyle;
-
-        // private GUIStyle _cyrillicButtonStyle;
-        // private GUIStyle _cyrillicBoldLabelStyle;
-
-
         [MenuItem( "Tools/Text Importer" )]
         public static void ShowWindow()
         {
             var wnd = GetWindow<TextImporterWindow>();
-            wnd.titleContent = new GUIContent( "Text Importer" );
+            wnd.titleContent = new GUIContent( "Duplicates finder" );
             wnd.Show();
-        }
-
-
-        private void InitStyles()
-        {
-            if( _europeanStyle == null )
-            {
-                // Используем шрифт, который поддерживает все европейские языки
-                Font europeanFont = null;
-
-                // Попробуем найти шрифт, который точно поддерживает все европейские языки
-                string[] fontNames = {"Arial", "Times New Roman", "Helvetica", "Verdana"};
-
-                foreach( var fontName in fontNames )
-                {
-                    var fonts = Resources.FindObjectsOfTypeAll<Font>();
-                    europeanFont = fonts.FirstOrDefault( f => f.name == fontName );
-
-                    if( europeanFont != null )
-                        break;
-                }
-
-                // Если не нашли подходящий шрифт, используем стандартный
-                if( europeanFont == null )
-                    europeanFont = EditorStyles.label.font;
-
-                // Основной стиль для текста
-                _europeanStyle = new GUIStyle( EditorStyles.label );
-                _europeanStyle.font = europeanFont;
-                _europeanStyle.wordWrap = true;
-
-                // Стиль для кнопок
-                // _europeanButtonStyle = new GUIStyle(GUI.skin.button);
-                // _europeanButtonStyle.font = europeanFont;
-
-                // Стиль для заголовков
-                // _europeanBoldLabelStyle = new GUIStyle(EditorStyles.boldLabel);
-                // _europeanBoldLabelStyle.font = europeanFont;
-                // _europeanBoldLabelStyle.fontStyle = FontStyle.Bold;
-            }
         }
 
 
         private void OnGUI()
         {
-            InitStyles();
-
-            // Применяем стили ко всем элементам интерфейса
             // GUILayout.Label("Text Importer", _cyrillicBoldLabelStyle);
 
             // GUILayout.Space(5);
 
             if( GUILayout.Button( "Load XML" ) )
             {
-                string path = EditorUtility.OpenFilePanel( "Выберите XML файл", "", "xml" );
+                string path = EditorUtility.OpenFilePanel( "Select XML file", "", "xml" );
                 if( !string.IsNullOrEmpty( path ) )
                     LoadFromXml( path );
             }
 
             if( GUILayout.Button( "Load JSON" ) )
             {
-                string path = EditorUtility.OpenFilePanel( "Выберите JSON файл", "", "json" );
+                string path = EditorUtility.OpenFilePanel( "Select JSON file", "", "json" );
                 if( !string.IsNullOrEmpty( path ) )
                     LoadFromJson( path );
             }
 
             if( GUILayout.Button( "Load TXT" ) )
             {
-                string path = EditorUtility.OpenFilePanel( "Выберите TXT файл", "", "txt" );
+                string path = EditorUtility.OpenFilePanel( "Select TXT file", "", "txt" );
                 if( !string.IsNullOrEmpty( path ) )
                     LoadFromTxt( path );
             }
 
             GUILayout.Space( 10 );
 
-            GUILayout.Label( $"Загружено строк: {_strings.Count}", _europeanStyle );
+            GUILayout.Label( $"Loaded strings: {_strings.Count}" );
 
             _scroll = GUILayout.BeginScrollView( _scroll, GUILayout.Height( 300 ) );
             for( int i = 0; i < _strings.Count; i++ )
             {
-                EditorGUILayout.LabelField( $"{i + 1}. {_strings[i]}", _europeanStyle );
+                EditorGUILayout.LabelField( $"{i + 1}. {_strings[i]}" );
             }
 
             GUILayout.EndScrollView();
@@ -115,37 +67,37 @@ namespace Tools
             {
                 GUILayout.Space( 10 );
 
-                GUILayout.Label( "Экспорт:" );
+                GUILayout.Label( "Export:" );
 
-                if( GUILayout.Button( "Экспортировать в XML" ) )
+                if( GUILayout.Button( "Export to XML" ) )
                 {
-                    string path = EditorUtility.SaveFilePanel( "Сохранить как XML", "", "strings.xml", "xml" );
+                    string path = EditorUtility.SaveFilePanel( "Save as XML", "", "strings.xml", "xml" );
                     if( !string.IsNullOrEmpty( path ) )
                         SaveToXml( path );
                 }
 
-                if( GUILayout.Button( "Экспортировать в JSON" ) )
+                if( GUILayout.Button( "Export to JSON" ) )
                 {
-                    string path = EditorUtility.SaveFilePanel( "Сохранить как JSON", "", "strings.json", "json" );
+                    string path = EditorUtility.SaveFilePanel( "Save as JSON", "", "strings.json", "json" );
                     if( !string.IsNullOrEmpty( path ) )
                         SaveToJson( path );
                 }
 
-                if( GUILayout.Button( "Экспортировать в TXT" ) )
+                if( GUILayout.Button( "Export to TXT" ) )
                 {
-                    string path = EditorUtility.SaveFilePanel( "Сохранить как TXT", "", "strings.txt", "txt" );
+                    string path = EditorUtility.SaveFilePanel( "Save as TXT", "", "strings.txt", "txt" );
                     if( !string.IsNullOrEmpty( path ) )
                         SaveToTxt( path );
                 }
 
                 GUILayout.Space( 5 );
-                if( GUILayout.Button( "Очистить список" ) )
+                if( GUILayout.Button( "Clear list" ) )
                     _strings.Clear();
             }
         }
 
 
-        // ===== Импорт =====
+        // ===== Import =====
         private void LoadFromXml( string path )
         {
             try
@@ -162,7 +114,7 @@ namespace Tools
             }
             catch( System.Exception ex )
             {
-                Debug.LogError( $"Ошибка чтения XML: {ex.Message}" );
+                Debug.LogError( $"XML read error: {ex.Message}" );
             }
         }
 
@@ -177,7 +129,7 @@ namespace Tools
             }
             catch( System.Exception ex )
             {
-                Debug.LogError( $"Ошибка чтения JSON: {ex.Message}" );
+                Debug.LogError( $"JSON read error: {ex.Message}" );
             }
         }
 
@@ -193,12 +145,12 @@ namespace Tools
             }
             catch( System.Exception ex )
             {
-                Debug.LogError( $"Ошибка чтения TXT: {ex.Message}" );
+                Debug.LogError( $"TXT read error: {ex.Message}" );
             }
         }
 
 
-        // ===== Экспорт =====
+        // ===== Export =====
         private void SaveToXml( string path )
         {
             try
@@ -212,7 +164,7 @@ namespace Tools
             }
             catch( System.Exception ex )
             {
-                Debug.LogError( $"Ошибка сохранения XML: {ex.Message}" );
+                Debug.LogError( $"XML save error: {ex.Message}" );
             }
         }
 
@@ -228,7 +180,7 @@ namespace Tools
             }
             catch( System.Exception ex )
             {
-                Debug.LogError( $"Ошибка сохранения JSON: {ex.Message}" );
+                Debug.LogError( $"JSON save error: {ex.Message}" );
             }
         }
 
@@ -242,7 +194,7 @@ namespace Tools
             }
             catch( System.Exception ex )
             {
-                Debug.LogError( $"Ошибка сохранения TXT: {ex.Message}" );
+                Debug.LogError( $"TXT save error: {ex.Message}" );
             }
         }
 
