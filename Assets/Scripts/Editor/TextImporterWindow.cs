@@ -1,11 +1,10 @@
-using System;
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
 using System.Linq;
-using Tools.Encoding;
+using Tools.EncodingHelper;
 
 
 namespace Tools
@@ -30,25 +29,27 @@ namespace Tools
 
             // GUILayout.Space(5);
 
-            if( GUILayout.Button( "Load XML" ) )
+            if( GUILayout.Button( "Load File" ) )
             {
-                string path = EditorUtility.OpenFilePanel( "Select XML file", "", "xml" );
+                // Let user pick any file, then decide by extension
+                string path = EditorUtility.OpenFilePanel( "Select file", "", "xml" );
                 if( !string.IsNullOrEmpty( path ) )
-                    LoadFromXml( path );
-            }
-
-            if( GUILayout.Button( "Load JSON" ) )
-            {
-                string path = EditorUtility.OpenFilePanel( "Select JSON file", "", "json" );
-                if( !string.IsNullOrEmpty( path ) )
-                    LoadFromJson( path );
-            }
-
-            if( GUILayout.Button( "Load TXT" ) )
-            {
-                string path = EditorUtility.OpenFilePanel( "Select TXT file", "", "txt" );
-                if( !string.IsNullOrEmpty( path ) )
-                    LoadFromTxt( path );
+                {
+                    string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
+                    switch( ext )
+                    {
+                        case "xml":
+                            LoadFromXml( path );
+                            break;
+                        case "json":
+                            LoadFromJson( path );
+                            break;
+                        default:
+                            // Any non-xml and non-json files are treated as plain text per requirement
+                            LoadFromTxt( path );
+                            break;
+                    }
+                }
             }
 
             GUILayout.Space( 10 );
@@ -69,25 +70,33 @@ namespace Tools
 
                 GUILayout.Label( "Export:" );
 
-                if( GUILayout.Button( "Export to XML" ) )
+                if( GUILayout.Button( "Save File" ) )
                 {
-                    string path = EditorUtility.SaveFilePanel( "Save as XML", "", "strings.xml", "xml" );
+                    // One save button: pick extension by the chosen filename
+                    string path = EditorUtility.SaveFilePanel( "Save strings", "", "strings", "xml" );
                     if( !string.IsNullOrEmpty( path ) )
-                        SaveToXml( path );
-                }
-
-                if( GUILayout.Button( "Export to JSON" ) )
-                {
-                    string path = EditorUtility.SaveFilePanel( "Save as JSON", "", "strings.json", "json" );
-                    if( !string.IsNullOrEmpty( path ) )
-                        SaveToJson( path );
-                }
-
-                if( GUILayout.Button( "Export to TXT" ) )
-                {
-                    string path = EditorUtility.SaveFilePanel( "Save as TXT", "", "strings.txt", "txt" );
-                    if( !string.IsNullOrEmpty( path ) )
-                        SaveToTxt( path );
+                    {
+                        string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
+                        switch( ext )
+                        {
+                            case "xml":
+                                SaveToXml( path );
+                                break;
+                            case "json":
+                                SaveToJson( path );
+                                break;
+                            case "txt":
+                            case "": // if user omits extension, default to txt
+                                if( string.IsNullOrEmpty( ext ) )
+                                    path += ".txt";
+                                SaveToTxt( path );
+                                break;
+                            default:
+                                // For any other extension, save as txt as per requirement of three formats preference
+                                SaveToTxt( path );
+                                break;
+                        }
+                    }
                 }
 
                 GUILayout.Space( 5 );
