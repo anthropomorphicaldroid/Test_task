@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
 using System.Linq;
+using System.Text;
 using Tools.EncodingHelper;
 
 
@@ -13,6 +14,12 @@ namespace Tools
     {
         private List<string> _strings = new();
         private Vector2 _scroll;
+        private Encoding selectedEncoding = Encoding.UTF8;
+        private int selectedEncodingIndex = 0;
+
+        private string[] encodingOptions =
+            new[] {"UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"};
+
 
         [MenuItem( "Tools/Duplicates Finder" )]
         public static void ShowWindow()
@@ -25,10 +32,41 @@ namespace Tools
 
         private void OnGUI()
         {
-            if( GUILayout.Button( "Load File" ) )
+            GUILayout.Label( "Text Importer", EditorStyles.boldLabel );
+
+            // Encoding selection
+            GUILayout.Label( "File Encoding:" );
+            selectedEncodingIndex = EditorGUILayout.Popup( selectedEncodingIndex, encodingOptions );
+            selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
+
+            GUILayout.Space( 10 );
+
+            GUILayout.BeginHorizontal();
             {
-                LoadFileDialog();
+                if( GUILayout.Button( "Load XML" ) )
+                {
+                    string path = EditorUtility.OpenFilePanel( "Select XML file", "", "xml" );
+                    if( !string.IsNullOrEmpty( path ) )
+                        LoadFromXml( path, selectedEncoding );
+                }
+
+                if( GUILayout.Button( "Load JSON" ) )
+                {
+                    string path = EditorUtility.OpenFilePanel( "Select JSON file", "", "json" );
+                    if( !string.IsNullOrEmpty( path ) )
+                        LoadFromJson( path, selectedEncoding );
+                }
+
+                if( GUILayout.Button( "Load TXT" ) )
+                {
+                    string path = EditorUtility.OpenFilePanel( "Select TXT file", "", "txt" );
+                    if( !string.IsNullOrEmpty( path ) )
+                        LoadFromTxt( path, selectedEncoding );
+                }
             }
+
+            GUILayout.EndHorizontal();
+
 
             GUILayout.Space( 10 );
 
@@ -45,84 +83,66 @@ namespace Tools
             if( _strings.Count > 0 )
             {
                 GUILayout.Space( 10 );
-
-                GUILayout.Label( "Export:" );
-
-                if( GUILayout.Button( "Save File" ) )
-                {
-                    SaveFileDialog();
-                }
-
-                GUILayout.Space( 5 );
+                
                 if( GUILayout.Button( "Clear list" ) )
                     _strings.Clear();
-            }
-        }
+                GUILayout.Space( 5 );
+                
+                GUILayout.Label( "Export:" );
 
-
-        void LoadFileDialog()
-        {
-            // Let user pick any file, then decide by extension
-            string path = EditorUtility.OpenFilePanel( "Select file", "", "xml" );
-            if( !string.IsNullOrEmpty( path ) )
-            {
-                string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
-                switch( ext )
+                GUILayout.BeginHorizontal();
                 {
-                    case "xml":
-                        LoadFromXml( path );
-                        break;
-                    case "json":
-                        LoadFromJson( path );
-                        break;
-                    default:
-                        // Any non-xml and non-json files are treated as plain text per requirement
-                        LoadFromTxt( path );
-                        break;
+                    if( GUILayout.Button( "Export to XML" ) )
+                    {
+                        string path = EditorUtility.SaveFilePanel( "Save as XML", "", "strings.xml", "xml" );
+                        if( !string.IsNullOrEmpty( path ) )
+                            SaveToXml( path );
+                    }
+
+                    if( GUILayout.Button( "Export to JSON" ) )
+                    {
+                        string path = EditorUtility.SaveFilePanel( "Save as JSON", "", "strings.json", "json" );
+                        if( !string.IsNullOrEmpty( path ) )
+                            SaveToJson( path );
+                    }
+
+                    if( GUILayout.Button( "Export to TXT" ) )
+                    {
+                        string path = EditorUtility.SaveFilePanel( "Save as TXT", "", "strings.txt", "txt" );
+                        if( !string.IsNullOrEmpty( path ) )
+                            SaveToTxt( path );
+                    }
                 }
+
+                GUILayout.EndHorizontal();
+
             }
         }
 
 
-        void SaveFileDialog()
+        private Encoding GetEncodingFromIndex( int index )
         {
-            // One save button: pick extension by the chosen filename
-            string path = EditorUtility.SaveFilePanel( "Save strings", "", "strings", "xml" );
-            if( !string.IsNullOrEmpty( path ) )
+            switch( index )
             {
-                string ext = System.IO.Path.GetExtension( path )?.TrimStart( '.' ).ToLowerInvariant();
-                switch( ext )
-                {
-                    case "xml":
-                        SaveToXml( path );
-                        break;
-                    case "json":
-                        SaveToJson( path );
-                        break;
-                    case "txt":
-                    case "": // if user omits extension, default to txt
-                        if( string.IsNullOrEmpty( ext ) )
-                            path += ".txt";
-                        SaveToTxt( path );
-                        break;
-                    default:
-                        // For any other extension, save as txt as per requirement of three formats preference
-                        SaveToTxt( path );
-                        break;
-                }
+                case 0:  return Encoding.UTF8;
+                case 1:  return Encoding.GetEncoding( 1251 );
+                case 2:  return Encoding.GetEncoding( 1252 );
+                case 3:  return Encoding.Unicode;
+                case 4:  return Encoding.BigEndianUnicode;
+                default: return Encoding.UTF8;
             }
         }
 
 
-        // ===== Import =====
-        private void LoadFromXml( string path )
+        // ===== Import methods with encoding parameter =====
+        private void LoadFromXml( string path, Encoding encoding )
         {
             try
             {
-                string xmlText = Encoder.ReadAllTextAuto( path );
+                string xmlText = File.ReadAllText( path, encoding );
                 using( var reader = new StringReader( xmlText ) )
                 {
-                    var doc = System.Xml.Linq.XDocument.Load( reader );
+                    var doc = XDocument.Load( reader );
                     _strings = doc.Descendants( "string" )
                                   .Select( x => x.Value.Trim() )
                                   .Where( x => !string.IsNullOrEmpty( x ) )
@@ -136,11 +156,11 @@ namespace Tools
         }
 
 
-        private void LoadFromJson( string path )
+        private void LoadFromJson( string path, Encoding encoding )
         {
             try
             {
-                string json = Encoder.ReadAllTextAuto( path );
+                string json = File.ReadAllText( path, encoding );
                 var arr = JsonUtility.FromJson<StringArrayWrapper>( json );
                 _strings = arr?.strings?.ToList() ?? new List<string>();
             }
@@ -151,11 +171,11 @@ namespace Tools
         }
 
 
-        private void LoadFromTxt( string path )
+        private void LoadFromTxt( string path, Encoding encoding )
         {
             try
             {
-                var lines = Encoder.ReadAllLinesAuto( path );
+                var lines = File.ReadAllLines( path, encoding );
                 _strings = lines.Select( l => l.Trim() )
                                 .Where( l => !string.IsNullOrEmpty( l ) )
                                 .ToList();
@@ -167,7 +187,7 @@ namespace Tools
         }
 
 
-        // ===== Export =====
+        // ===== Export methods (remain unchanged) =====
         private void SaveToXml( string path )
         {
             try
@@ -192,7 +212,7 @@ namespace Tools
             {
                 var wrapper = new StringArrayWrapper {strings = _strings.ToArray()};
                 string json = JsonUtility.ToJson( wrapper, true );
-                File.WriteAllText( path, json );
+                File.WriteAllText( path, json, Encoding.UTF8 );
                 AssetDatabase.Refresh();
             }
             catch( System.Exception ex )
@@ -206,7 +226,7 @@ namespace Tools
         {
             try
             {
-                File.WriteAllLines( path, _strings, System.Text.Encoding.UTF8 );
+                File.WriteAllLines( path, _strings, Encoding.UTF8 );
                 AssetDatabase.Refresh();
             }
             catch( System.Exception ex )
