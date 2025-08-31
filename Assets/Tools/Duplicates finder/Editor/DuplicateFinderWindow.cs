@@ -54,34 +54,35 @@ public class DuplicateFinderWindow : EditorWindow
     private void DrawImportTab()
     {
         GUILayout.Label("Import Settings", EditorStyles.boldLabel);
-        
+    
         EditorGUILayout.BeginHorizontal();
         importPath = EditorGUILayout.TextField("XML Path", importPath);
-        
+    
         if (GUILayout.Button("Browse", GUILayout.Width(60)))
         {
             string newPath = EditorUtility.OpenFilePanel("Select XML file", "", "xml");
             if (!string.IsNullOrEmpty(newPath))
             {
                 importPath = newPath;
-                xmlStructure = GetXmlStructure(importPath);
+                xmlStructure = GetXmlTagsStructure(importPath);
             }
         }
         EditorGUILayout.EndHorizontal();
-        
-        // Отображение структуры XML
+    
+        // Отображение уникальных тегов XML
         if (!string.IsNullOrEmpty(xmlStructure))
         {
-            GUILayout.Label("XML Structure (Read Only):", EditorStyles.boldLabel);
-            structureScrollPosition = EditorGUILayout.BeginScrollView(structureScrollPosition, GUILayout.Height(150));
+            GUILayout.Label("Available XML Tags:", EditorStyles.boldLabel);
+            structureScrollPosition = EditorGUILayout.BeginScrollView(structureScrollPosition, GUILayout.Height(100));
             EditorGUILayout.TextArea(xmlStructure, EditorStyles.wordWrappedLabel);
             EditorGUILayout.EndScrollView();
-        }
         
+            EditorGUILayout.HelpBox("Copy tags from above and paste in the field below to filter content.", MessageType.Info);
+        }
+    
         // Поле для ввода тегов фильтрации
         filterTags = EditorGUILayout.TextField("Filter Tags (comma separated)", filterTags);
-        EditorGUILayout.HelpBox("Enter XML tag names separated by commas to filter content. Leave empty to import all text nodes.", MessageType.Info);
-        
+    
         if (GUILayout.Button("Import XML"))
         {
             string[] tags = filterTags.Split(new char[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -89,14 +90,15 @@ public class DuplicateFinderWindow : EditorWindow
             {
                 tags[i] = tags[i].Trim();
             }
-            
+        
             ImportFromXML(importPath, tags);
         }
-        
+    
         GUILayout.Space(10);
         GUILayout.Label($"Imported Sentences: {sentences.Count}", EditorStyles.boldLabel);
         DrawSentencesList(sentences);
     }
+
 
 
     private void DrawAnalysisTab()
@@ -248,8 +250,7 @@ private void ImportFromXML(string path, string[] tagsToFilter)
         }
     }
 
-    // Новый метод для получения структуры XML
-    private string GetXmlStructure(string path)
+    private string GetXmlTagsStructure(string path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return "Invalid file path";
@@ -258,13 +259,36 @@ private void ImportFromXML(string path, string[] tagsToFilter)
         {
             XmlDocument doc = new XmlDocument();
             doc.Load(path);
-            return GetNodeStructure(doc.DocumentElement, 0);
+        
+            HashSet<string> uniqueTags = new HashSet<string>();
+            CollectUniqueTags(doc.DocumentElement, uniqueTags);
+        
+            // Сортируем теги для удобства чтения
+            List<string> sortedTags = new List<string>(uniqueTags);
+            sortedTags.Sort();
+        
+            return "Available tags:\n" + string.Join(", ", sortedTags);
         }
         catch (System.Exception e)
         {
             return $"Error reading XML structure: {e.Message}";
         }
     }
+
+// Метод для сбора уникальных тегов
+    private void CollectUniqueTags(XmlNode node, HashSet<string> uniqueTags)
+    {
+        if (node.NodeType == XmlNodeType.Element)
+        {
+            uniqueTags.Add(node.Name);
+        }
+    
+        foreach (XmlNode child in node.ChildNodes)
+        {
+            CollectUniqueTags(child, uniqueTags);
+        }
+    }
+
 
     // Новый метод для рекурсивного получения структуры узлов
     private string GetNodeStructure(XmlNode node, int indentLevel)
