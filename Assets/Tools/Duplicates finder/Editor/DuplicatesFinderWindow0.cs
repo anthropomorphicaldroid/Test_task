@@ -10,7 +10,7 @@ using Tools.EncodingHelper;
 
 namespace Tools
 {
-    public class DuplicatesFinderWindow : EditorWindow
+    public class DuplicatesFinderWindow0 : EditorWindow
     {
         private List<string> _strings = new();
         private Vector2 _scroll;
@@ -27,10 +27,10 @@ namespace Tools
             new[] {"UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"};
 
 
-        [MenuItem( "Tools/Duplicates Finder" )]
+        [MenuItem( "Tools/Duplicates Finder0" )]
         public static void ShowWindow()
         {
-            var wnd = GetWindow<DuplicatesFinderWindow>();
+            var wnd = GetWindow<DuplicatesFinderWindow0>();
             wnd.titleContent = new GUIContent( "Duplicates finder" );
             wnd.Show();
         }
