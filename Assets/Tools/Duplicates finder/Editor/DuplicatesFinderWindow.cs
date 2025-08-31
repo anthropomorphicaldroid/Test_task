@@ -16,6 +16,12 @@ namespace Tools
         private Vector2 _scroll;
         private Encoding selectedEncoding = Encoding.UTF8;
         private int selectedEncodingIndex = 0;
+        private int _lastEncodingIndex = 0; // to detect changes in dropdown
+
+        // Stores info about the last opened file
+        private string _currentFilePath = string.Empty;   // full path
+        private string _currentFileName = string.Empty;   // file name without extension
+        private string _currentFileExtension = string.Empty; // extension without dot
 
         private string[] encodingOptions =
             new[] {"UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"};
@@ -36,8 +42,20 @@ namespace Tools
 
             // Encoding selection
             GUILayout.Label( "File Encoding:" );
-            selectedEncodingIndex = EditorGUILayout.Popup( selectedEncodingIndex, encodingOptions );
-            selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
+            int newEncodingIndex = EditorGUILayout.Popup( selectedEncodingIndex, encodingOptions );
+            if (newEncodingIndex != selectedEncodingIndex)
+            {
+                selectedEncodingIndex = newEncodingIndex;
+                selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
+                // Reload currently opened file (if any) with the new encoding
+                TryReloadCurrentFile();
+                _lastEncodingIndex = selectedEncodingIndex;
+            }
+            else
+            {
+                // ensure selectedEncoding is in sync even if not changed externally
+                selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
+            }
 
             GUILayout.Space( 10 );
 
@@ -47,21 +65,30 @@ namespace Tools
                 {
                     string path = EditorUtility.OpenFilePanel( "Select XML file", "", "xml" );
                     if( !string.IsNullOrEmpty( path ) )
+                    {
+                        CaptureFileInfo(path);
                         LoadFromXml( path, selectedEncoding );
+                    }
                 }
 
                 if( GUILayout.Button( "Load JSON" ) )
                 {
                     string path = EditorUtility.OpenFilePanel( "Select JSON file", "", "json" );
                     if( !string.IsNullOrEmpty( path ) )
+                    {
+                        CaptureFileInfo(path);
                         LoadFromJson( path, selectedEncoding );
+                    }
                 }
 
                 if( GUILayout.Button( "Load TXT" ) )
                 {
                     string path = EditorUtility.OpenFilePanel( "Select TXT file", "", "txt" );
                     if( !string.IsNullOrEmpty( path ) )
+                    {
+                        CaptureFileInfo(path);
                         LoadFromTxt( path, selectedEncoding );
+                    }
                 }
             }
 
@@ -71,6 +98,13 @@ namespace Tools
             GUILayout.Space( 10 );
 
             GUILayout.Label( $"Loaded strings: {_strings.Count}" );
+
+            // Show info about currently opened file (if any)
+            if (!string.IsNullOrEmpty(_currentFilePath))
+            {
+                GUILayout.Label($"Current file: {_currentFileName}.{_currentFileExtension}");
+                EditorGUILayout.SelectableLabel(_currentFilePath, GUILayout.Height(16));
+            }
 
             _scroll = GUILayout.BeginScrollView( _scroll, GUILayout.Height( 300 ) );
             for( int i = 0; i < _strings.Count; i++ )
@@ -133,7 +167,54 @@ namespace Tools
             }
         }
 
+        // Captures file path, name and extension for the last opened file
+        private void CaptureFileInfo(string path)
+        {
+            _currentFilePath = path;
+            try
+            {
+                _currentFileName = Path.GetFileNameWithoutExtension(path) ?? string.Empty;
+                var extWithDot = Path.GetExtension(path) ?? string.Empty;
+                _currentFileExtension = extWithDot.StartsWith(".") ? extWithDot.Substring(1) : extWithDot;
+            }
+            catch
+            {
+                _currentFileName = string.Empty;
+                _currentFileExtension = string.Empty;
+            }
+        }
 
+        // Reloads current file (based on stored path and extension) with current selected encoding
+        private void TryReloadCurrentFile()
+        {
+            if (string.IsNullOrEmpty(_currentFilePath) || string.IsNullOrEmpty(_currentFileExtension))
+                return;
+
+            // Choose loader by extension
+            var ext = _currentFileExtension.ToLowerInvariant();
+            switch (ext)
+            {
+                case "xml":
+                    LoadFromXml(_currentFilePath, selectedEncoding);
+                    break;
+                case "json":
+                    LoadFromJson(_currentFilePath, selectedEncoding);
+                    break;
+                case "txt":
+                    LoadFromTxt(_currentFilePath, selectedEncoding);
+                    break;
+                default:
+                    // Unknown extension; try a safe default (txt)
+                    try
+                    {
+                        LoadFromTxt(_currentFilePath, selectedEncoding);
+                    }
+                    catch { }
+                    break;
+            }
+        }
+
+ 
         // ===== Import methods with encoding parameter =====
         private void LoadFromXml( string path, Encoding encoding )
         {
