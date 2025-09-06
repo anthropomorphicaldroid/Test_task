@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using System.Linq;
-using System.Xml; // Добавляем для работы с XmlDocument
+using System.Text;
+using System.Xml;
+using Encoder = Tools.EncodingHelper.Encoder; // Добавляем для работы с XmlDocument
 
 
 public class DuplicateFinderWindow : EditorWindow
@@ -29,6 +31,11 @@ public class DuplicateFinderWindow : EditorWindow
     private string xmlStructure = "";
     private string filterTags = "";
     private Vector2 structureScrollPosition;
+
+    private string[] encodingOptions = {"Auto", "UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"};
+
+    private int selectedEncodingIndex = 0;
+    private Encoding selectedEncoding = Encoding.Default;
 
 
     [MenuItem( "Tools/Duplicate Finder" )]
@@ -88,6 +95,23 @@ public class DuplicateFinderWindow : EditorWindow
 
         // Поле для ввода тегов фильтрации
         filterTags = EditorGUILayout.TextField( "Filter Tags (comma separated)", filterTags );
+
+        // Encoding selection
+        GUILayout.Label( "File Encoding:" );
+        int newEncodingIndex = EditorGUILayout.Popup( selectedEncodingIndex, encodingOptions );
+        if( newEncodingIndex != selectedEncodingIndex )
+        {
+            selectedEncodingIndex = newEncodingIndex;
+            selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
+        }
+        else
+        {
+            // ensure selectedEncoding is in sync even if not changed externally
+            selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
+        }
+
+        GUILayout.Space( 10 );
+
 
         if( GUILayout.Button( "Import XML" ) )
         {
@@ -219,8 +243,16 @@ public class DuplicateFinderWindow : EditorWindow
         {
             sentences.Clear();
 
+            // Используем ваш Encoder для чтения файла с правильной кодировкой
+            string xmlContent = Equals( selectedEncoding, Encoding.Default )
+                                    ? Encoder.ReadAllTextEncodingAuto( path )
+                                    : Encoder.ReadAllText( path, selectedEncoding );
+
+            Debug.Log( xmlContent );
+
+            // Создаем XmlDocument из строки
             XmlDocument doc = new XmlDocument();
-            doc.Load( path );
+            doc.LoadXml( xmlContent );
 
             // Если теги для фильтрации не указаны, извлекаем все текстовые узлы
             if( tagsToFilter == null
@@ -272,7 +304,6 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    // Новый метод для получения структуры XML с примерами
     private string GetXmlStructureExample( string path )
     {
         if( string.IsNullOrEmpty( path )
@@ -281,8 +312,13 @@ public class DuplicateFinderWindow : EditorWindow
 
         try
         {
+            // Используем ваш Encoder для чтения файла с правильной кодировкой
+            string xmlContent = Encoder.ReadAllTextEncodingAuto( path );
+
+            // Создаем XmlDocument из строки
             XmlDocument doc = new XmlDocument();
-            doc.Load( path );
+            doc.LoadXml( xmlContent );
+
             return GetNodeStructureExample( doc.DocumentElement, 0, new HashSet<string>() );
         }
         catch( System.Exception e )
@@ -292,7 +328,6 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-// Метод для рекурсивного получения структуры с примерами
     private string GetNodeStructureExample( XmlNode node, int indentLevel, HashSet<string> processedTags )
     {
         string indent = new string( ' ', indentLevel * 2 );
@@ -359,34 +394,21 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    private string GetXmlTagsStructure( string path )
+    private Encoding GetEncodingFromIndex( int index )
     {
-        if( string.IsNullOrEmpty( path )
-            || !File.Exists( path ) )
-            return "Invalid file path";
-
-        try
+        switch( index )
         {
-            XmlDocument doc = new XmlDocument();
-            doc.Load( path );
-
-            HashSet<string> uniqueTags = new HashSet<string>();
-            CollectUniqueTags( doc.DocumentElement, uniqueTags );
-
-            // Сортируем теги для удобства чтения
-            List<string> sortedTags = new List<string>( uniqueTags );
-            sortedTags.Sort();
-
-            return "Available tags:\n" + string.Join( ", ", sortedTags );
-        }
-        catch( System.Exception e )
-        {
-            return $"Error reading XML structure: {e.Message}";
+            case 0:  return Encoding.Default;
+            case 1:  return Encoding.UTF8;
+            case 2:  return Encoding.GetEncoding( 1251 );
+            case 3:  return Encoding.GetEncoding( 1252 );
+            case 4:  return Encoding.Unicode;
+            case 5:  return Encoding.BigEndianUnicode;
+            default: return Encoding.UTF8;
         }
     }
 
 
-// Метод для сбора уникальных тегов
     private void CollectUniqueTags( XmlNode node, HashSet<string> uniqueTags )
     {
         if( node.NodeType == XmlNodeType.Element )
@@ -398,39 +420,6 @@ public class DuplicateFinderWindow : EditorWindow
         {
             CollectUniqueTags( child, uniqueTags );
         }
-    }
-
-
-    // Новый метод для рекурсивного получения структуры узлов
-    private string GetNodeStructure( XmlNode node, int indentLevel )
-    {
-        string indent = new string( ' ', indentLevel * 2 );
-        string result = indent + "<" + node.Name + ">\n";
-
-        // Добавляем атрибуты, если они есть
-        if( node.Attributes != null
-            && node.Attributes.Count > 0 )
-        {
-            foreach( XmlAttribute attr in node.Attributes )
-            {
-                result += indent + "  " + attr.Name + "=\"" + attr.Value + "\"\n";
-            }
-        }
-
-        // Рекурсивно обрабатываем дочерние элементы
-        foreach( XmlNode child in node.ChildNodes )
-        {
-            if( child.NodeType == XmlNodeType.Element )
-            {
-                result += GetNodeStructure( child, indentLevel + 1 );
-            }
-            else if( child.NodeType == XmlNodeType.Text )
-            {
-                result += indent + "  " + "Text: " + child.Value + "\n";
-            }
-        }
-
-        return result;
     }
 
 
