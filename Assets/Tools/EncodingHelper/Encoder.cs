@@ -61,6 +61,11 @@ namespace Tools.EncodingHelper
             if( TryDecode( fileContent, Encoding.GetEncoding( 1252 ) ) )
                 return Encoding.GetEncoding( 1252 );
 
+            // Try system default ANSI encoding
+            Encoding ansiEncoding = Encoding.GetEncoding(0);
+            if (TryDecode(fileContent, ansiEncoding))
+                return ansiEncoding;
+
             // Fallback
             return defaultEncoding ?? Encoding.UTF8;
         }
@@ -94,17 +99,8 @@ namespace Tools.EncodingHelper
 
         public static string ReadAllText( string path, Encoding encoding )
         {
-            string text = File.ReadAllText( path, encoding );
-
-            Debug.Log( $"Encoding: {encoding} - {encoding.EncodingName}" );
-
-            // Always convert to UTF-8 for consistent handling
-            if( encoding.CodePage != Encoding.UTF8.CodePage )
-            {
-                byte[] bytes = encoding.GetBytes( text );
-                text = Encoding.UTF8.GetString( bytes );
-            }
-
+            string text = File.ReadAllText(path, encoding);
+            Debug.Log($"Encoding: {encoding} - {encoding.EncodingName}");
             return text;
         }
     }
