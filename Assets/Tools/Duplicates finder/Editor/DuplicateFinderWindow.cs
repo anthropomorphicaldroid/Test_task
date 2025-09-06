@@ -6,7 +6,7 @@ using System.Xml.Serialization;
 using System.Linq;
 using System.Text;
 using System.Xml;
-using Encoder = Tools.EncodingHelper.Encoder; // Добавляем для работы с XmlDocument
+using Encoder = Tools.EncodingHelper.Encoder;
 
 
 public class DuplicateFinderWindow : EditorWindow
@@ -27,13 +27,12 @@ public class DuplicateFinderWindow : EditorWindow
     private int selectedTab = 0;
     private string[] tabNames = {"Import", "Analysis", "Manual Review", "Export"};
 
-    // Новые поля для отображения структуры XML и фильтрации
+    // Fields for XML structure display and filtering
     private string xmlStructure = "";
     private string filterTags = "";
     private Vector2 structureScrollPosition;
 
     private string[] encodingOptions = {"Auto", "UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"};
-
     private int selectedEncodingIndex = 0;
     private Encoding selectedEncoding = Encoding.Default;
 
@@ -75,10 +74,9 @@ public class DuplicateFinderWindow : EditorWindow
                 xmlStructure = GetXmlStructureExample( importPath );
             }
         }
-
         EditorGUILayout.EndHorizontal();
 
-        // Отображение структуры XML с примерами
+        // Display XML structure with examples
         if( !string.IsNullOrEmpty( xmlStructure ) )
         {
             GUILayout.Label( "XML Structure Example:", EditorStyles.boldLabel );
@@ -93,7 +91,7 @@ public class DuplicateFinderWindow : EditorWindow
                 MessageType.Info );
         }
 
-        // Поле для ввода тегов фильтрации
+        // Field for filter tags input
         filterTags = EditorGUILayout.TextField( "Filter Tags (comma separated)", filterTags );
 
         // Encoding selection
@@ -106,12 +104,11 @@ public class DuplicateFinderWindow : EditorWindow
         }
         else
         {
-            // ensure selectedEncoding is in sync even if not changed externally
+            // Ensure selectedEncoding is in sync even if not changed externally
             selectedEncoding = GetEncodingFromIndex( selectedEncodingIndex );
         }
 
         GUILayout.Space( 10 );
-
 
         if( GUILayout.Button( "Import XML" ) )
         {
@@ -161,7 +158,6 @@ public class DuplicateFinderWindow : EditorWindow
         {
             exportPath = EditorUtility.SaveFilePanel( "Save XML file", "", "sentences_cleaned.xml", "xml" );
         }
-
         EditorGUILayout.EndHorizontal();
 
         if( GUILayout.Button( "Export Cleaned XML" ) )
@@ -195,7 +191,6 @@ public class DuplicateFinderWindow : EditorWindow
             EditorGUILayout.LabelField( $"{i + 1}. {sentences[i]}",
                                         EditorStyles.textArea,
                                         GUILayout.Height( EditorGUIUtility.singleLineHeight * 2 ) );
-
             EditorGUILayout.EndHorizontal();
         }
 
@@ -243,18 +238,18 @@ public class DuplicateFinderWindow : EditorWindow
         {
             sentences.Clear();
 
-            // Используем ваш Encoder для чтения файла с правильной кодировкой
+            // Use custom Encoder for proper encoding handling
             string xmlContent = Equals( selectedEncoding, Encoding.Default )
                                     ? Encoder.ReadAllTextEncodingAuto( path )
                                     : Encoder.ReadAllText( path, selectedEncoding );
 
             Debug.Log( xmlContent );
 
-            // Создаем XmlDocument из строки
+            // Create XmlDocument from string
             XmlDocument doc = new XmlDocument();
             doc.LoadXml( xmlContent );
 
-            // Если теги для фильтрации не указаны, извлекаем все текстовые узлы
+            // Extract all text nodes if no filter tags specified
             if( tagsToFilter == null
                 || tagsToFilter.Length == 0 )
             {
@@ -262,7 +257,7 @@ public class DuplicateFinderWindow : EditorWindow
             }
             else
             {
-                // Извлекаем только узлы с указанными тегами
+                // Extract only nodes with specified tags
                 foreach( string tag in tagsToFilter )
                 {
                     XmlNodeList nodes = doc.GetElementsByTagName( tag );
@@ -288,7 +283,7 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    // Новый метод для извлечения всех текстовых узлов
+    // Method to extract all text nodes
     private void ExtractAllTextNodes( XmlNode node )
     {
         if( node.NodeType == XmlNodeType.Text
@@ -312,10 +307,10 @@ public class DuplicateFinderWindow : EditorWindow
 
         try
         {
-            // Используем ваш Encoder для чтения файла с правильной кодировкой
+            // Use custom Encoder for proper encoding handling
             string xmlContent = Encoder.ReadAllTextEncodingAuto( path );
 
-            // Создаем XmlDocument из строки
+            // Create XmlDocument from string
             XmlDocument doc = new XmlDocument();
             doc.LoadXml( xmlContent );
 
@@ -333,7 +328,7 @@ public class DuplicateFinderWindow : EditorWindow
         string indent = new string( ' ', indentLevel * 2 );
         string result = indent + "<" + node.Name;
 
-        // Добавляем атрибуты, если они есть
+        // Add attributes if present
         if( node.Attributes != null
             && node.Attributes.Count > 0 )
         {
@@ -345,7 +340,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         result += ">";
 
-        // Добавляем текстовое содержимое, если оно есть
+        // Add text content if present
         bool hasTextContent = false;
         foreach( XmlNode child in node.ChildNodes )
         {
@@ -354,33 +349,33 @@ public class DuplicateFinderWindow : EditorWindow
             {
                 result += " " + child.Value.Trim();
                 hasTextContent = true;
-                break; // Только первый текстовый элемент
+                break; // Only first text element
             }
         }
 
         if( !hasTextContent )
             result += "\n";
 
-        // Отслеживаем, какие теги мы уже обработали на этом уровне
+        // Track which tags we've already processed at this level
         HashSet<string> childTags = new HashSet<string>();
 
-        // Обрабатываем дочерние элементы (только по одному примеру каждого тега)
+        // Process child elements (only one example of each tag)
         foreach( XmlNode child in node.ChildNodes )
         {
             if( child.NodeType == XmlNodeType.Element )
             {
-                // Пропускаем, если уже обработали тег с таким именем на этом уровне
+                // Skip if we've already processed a tag with this name at this level
                 if( childTags.Contains( child.Name ) )
                     continue;
 
                 childTags.Add( child.Name );
 
-                // Рекурсивно обрабатываем дочерний элемент
+                // Recursively process child element
                 result += GetNodeStructureExample( child, indentLevel + 1, processedTags );
             }
         }
 
-        // Закрывающий тег
+        // Closing tag
         if( !hasTextContent )
         {
             result += indent + "</" + node.Name + ">\n";
@@ -456,8 +451,8 @@ public class DuplicateFinderWindow : EditorWindow
 
     private void FindDuplicates()
     {
-        // Заглушка для алгоритма поиска дубликатов
-        // В реальной реализации здесь будет сложная логика сравнения
+        // Placeholder for duplicate finding algorithm
+        // In real implementation, complex comparison logic would be here
         filteredSentences = sentences.Distinct().ToList();
         EditorUtility.DisplayDialog( "Info",
                                      $"Found {sentences.Count - filteredSentences.Count} duplicates",
