@@ -32,7 +32,11 @@ public class DuplicateFinderWindow : EditorWindow
     private string _filterTags = "";
     private Vector2 _structureScrollPosition;
 
-    private readonly string[] _encodingOptions = {"Auto", "UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"};
+    private readonly string[] _encodingOptions =
+    {
+        "Auto", "UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"
+    };
+
     private int _selectedEncodingIndex = 0;
     private Encoding _selectedEncoding = Encoding.Default;
 
@@ -133,9 +137,9 @@ public class DuplicateFinderWindow : EditorWindow
         GUILayout.Label( "Analysis Settings", EditorStyles.boldLabel );
 
         _similarityThreshold = EditorGUILayout.Slider( "Similarity Threshold",
-                                                      _similarityThreshold,
-                                                      0.1f,
-                                                      1.0f );
+                                                       _similarityThreshold,
+                                                       0.1f,
+                                                       1.0f );
 
         if( GUILayout.Button( "Find Duplicates" ) )
         {
@@ -215,7 +219,7 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
         _scrollPosition = EditorGUILayout.BeginScrollView( _scrollPosition,
-                                                          GUILayout.Height( 300 ) );
+                                                           GUILayout.Height( 300 ) );
 
         for( int i = 0; i < sentencesList.Count; i++ )
         {
@@ -246,7 +250,6 @@ public class DuplicateFinderWindow : EditorWindow
                                     ? Encoder.ReadAllTextEncodingAuto( path )
                                     : Encoder.ReadAllText( path, _selectedEncoding );
 
-            Debug.Log( xmlContent );
 
             // Create XmlDocument from string
             XmlDocument doc = new XmlDocument();
