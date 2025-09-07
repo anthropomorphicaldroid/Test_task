@@ -12,10 +12,10 @@ using Encoder = Tools.EncodingHelper.Encoder;
 public class DuplicateFinderWindow : EditorWindow
 {
     [SerializeField]
-    private List<string> Strings = new List<string>();
+    private List<string> Sentences = new List<string>();
 
     [SerializeField]
-    private List<string> FilteredStrings = new List<string>();
+    private List<string> FilteredSentences = new List<string>();
 
     [SerializeField]
     private List<bool> SentenceSelection = new List<bool>();
@@ -23,9 +23,9 @@ public class DuplicateFinderWindow : EditorWindow
     private Vector2 _scrollPosition;
     private string _importPath = "";
     private string _exportPath = "";
-    private float _similarityThreshold = 0.8f;
-    private int _selectedTab = 0;
     private readonly string[] _tabNames = {"Import", "Analysis", "Manual Review", "Export"};
+    private int _selectedTab = 0;
+
 
     // Fields for XML structure display and filtering
     private string _xmlStructure = "";
@@ -40,11 +40,40 @@ public class DuplicateFinderWindow : EditorWindow
     private int _selectedEncodingIndex = 0;
     private Encoding _selectedEncoding = Encoding.Default;
 
+    private float _similarityThreshold = 0.8f;
+
+    // UI state variables
+    private bool _showFileSection = true;
+    private bool _showEncodingSection;
+    private bool _showFilterSection;
+    private bool _showPreviewSection;
+    private bool _isDrawSentences;
+
 
     [MenuItem( "Tools/Duplicate Finder" )]
     public static void ShowWindow()
     {
         GetWindow<DuplicateFinderWindow>( "Duplicate Finder" );
+    }
+
+
+    void OnEnable()
+    {
+        _showFileSection = PlayerPrefs.GetInt( "Duplicate Finder.showFileSection" ) == 1;
+        _showEncodingSection = PlayerPrefs.GetInt( "Duplicate Finder.showEncodingSection" ) == 1;
+        _showFilterSection = PlayerPrefs.GetInt( "Duplicate Finder.showFilterSection" ) == 1;
+        _showPreviewSection = PlayerPrefs.GetInt( "Duplicate Finder.showPreviewSection" ) == 1;
+        _isDrawSentences = PlayerPrefs.GetInt( "Duplicate Finder.isDrawSentences" ) == 1;
+    }
+
+
+    void OnDisable()
+    {
+        PlayerPrefs.SetInt( "Duplicate Finder.showFileSection", _showFileSection ? 1 : 0 );
+        PlayerPrefs.SetInt( "Duplicate Finder.showEncodingSection", _showEncodingSection ? 1 : 0 );
+        PlayerPrefs.SetInt( "Duplicate Finder.showFilterSection", _showFilterSection ? 1 : 0 );
+        PlayerPrefs.SetInt( "Duplicate Finder.showPreviewSection", _showPreviewSection ? 1 : 0 );
+        PlayerPrefs.SetInt( "Duplicate Finder.isDrawSentences", _isDrawSentences ? 1 : 0 );
     }
 
 
@@ -66,58 +95,143 @@ public class DuplicateFinderWindow : EditorWindow
     {
         GUILayout.Label( "Import Settings", EditorStyles.boldLabel );
 
-        EditorGUILayout.BeginHorizontal();
-        _importPath = EditorGUILayout.TextField( "XML Path", _importPath );
-
-        if( GUILayout.Button( "Browse", GUILayout.Width( 60 ) ) )
+        // File Selection Section with colored background
+        EditorGUILayout.BeginVertical( GUI.skin.box );
         {
-            string newPath = EditorUtility.OpenFilePanel( "Select XML file", "", "xml" );
-            if( !string.IsNullOrEmpty( newPath ) )
+            EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
+            _showFileSection =
+                EditorGUILayout.Foldout( _showFileSection, "File Selection", true, EditorStyles.foldout );
+
+            EditorGUILayout.EndHorizontal();
+
+            if( _showFileSection )
             {
-                _importPath = newPath;
-                _xmlStructure = GetXmlStructureExample( _importPath );
+                EditorGUI.DrawRect( EditorGUILayout.BeginVertical(), new Color( 0.2f, 0.2f, 0.2f, 0.1f ) );
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    _importPath = EditorGUILayout.TextField( "XML Path", _importPath );
+
+                    if( GUILayout.Button( "Browse", GUILayout.Width( 60 ) ) )
+                    {
+                        string newPath = EditorUtility.OpenFilePanel( "Select XML file", "", "xml" );
+                        if( !string.IsNullOrEmpty( newPath ) )
+                        {
+                            _importPath = newPath;
+                            _xmlStructure = GetXmlStructureExample( _importPath );
+                        }
+                    }
+
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                EditorGUILayout.EndVertical();
             }
         }
 
-        EditorGUILayout.EndHorizontal();
+        EditorGUILayout.EndVertical();
 
-        // Display XML structure with examples
-        if( !string.IsNullOrEmpty( _xmlStructure ) )
+        GUILayout.Space( 5 );
+
+        // Encoding Selection Section with colored background
+        EditorGUILayout.BeginVertical( GUI.skin.box );
         {
-            GUILayout.Label( "XML Structure Example:", EditorStyles.boldLabel );
-            _structureScrollPosition =
-                EditorGUILayout.BeginScrollView( _structureScrollPosition, GUILayout.Height( 200 ) );
+            EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
+            _showEncodingSection =
+                EditorGUILayout.Foldout( _showEncodingSection, "Encoding Settings", true, EditorStyles.foldout );
 
-            EditorGUILayout.TextArea( _xmlStructure, EditorStyles.wordWrappedLabel );
-            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.HelpBox(
-                "This shows the structure with one example of each tag. Use these tag names for filtering below.",
-                MessageType.Info );
+            if( _showEncodingSection )
+            {
+                EditorGUI.DrawRect( EditorGUILayout.BeginVertical(), new Color( 0.2f, 0.3f, 0.2f, 0.1f ) );
+                {
+                    GUILayout.Label( "File Encoding:" );
+                    int newEncodingIndex = EditorGUILayout.Popup( _selectedEncodingIndex, _encodingOptions );
+                    if( newEncodingIndex != _selectedEncodingIndex )
+                    {
+                        _selectedEncodingIndex = newEncodingIndex;
+                        _selectedEncoding = GetEncodingFromIndex( _selectedEncodingIndex );
+                    }
+                    else
+                    {
+                        // Ensure selectedEncoding is in sync even if not changed externally
+                        _selectedEncoding = GetEncodingFromIndex( _selectedEncodingIndex );
+                    }
+                }
+
+                EditorGUILayout.EndVertical();
+            }
         }
 
-        // Field for filter tags input
-        _filterTags = EditorGUILayout.TextField( "Filter Tags (comma separated)", _filterTags );
+        EditorGUILayout.EndVertical();
 
-        // Encoding selection
-        GUILayout.Label( "File Encoding:" );
-        int newEncodingIndex = EditorGUILayout.Popup( _selectedEncodingIndex, _encodingOptions );
-        if( newEncodingIndex != _selectedEncodingIndex )
+        GUILayout.Space( 5 );
+
+        // XML Structure Preview Section
+        EditorGUILayout.BeginVertical( GUI.skin.box );
         {
-            _selectedEncodingIndex = newEncodingIndex;
-            _selectedEncoding = GetEncodingFromIndex( _selectedEncodingIndex );
+            EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
+            _showPreviewSection =
+                EditorGUILayout.Foldout( _showPreviewSection, "XML Structure Preview", true, EditorStyles.foldout );
+
+            EditorGUILayout.EndHorizontal();
+
+            if( _showPreviewSection )
+            {
+                EditorGUI.DrawRect( EditorGUILayout.BeginVertical(), new Color( 0.3f, 0.2f, 0.2f, 0.1f ) );
+                {
+                    _structureScrollPosition =
+                        EditorGUILayout.BeginScrollView( _structureScrollPosition, GUILayout.Height( 200 ) );
+
+                    EditorGUILayout.TextArea( _xmlStructure, EditorStyles.wordWrappedLabel );
+                    EditorGUILayout.EndScrollView();
+
+                    EditorGUILayout.HelpBox(
+                        "This shows the structure with one example of each tag. Use these tag names for filtering above.",
+                        MessageType.Info );
+                }
+
+                EditorGUILayout.EndVertical();
+            }
         }
-        else
+
+        EditorGUILayout.EndVertical();
+
+        GUILayout.Space( 5 );
+
+        // Filter Section with colored background
+        EditorGUILayout.BeginVertical( GUI.skin.box );
         {
-            // Ensure selectedEncoding is in sync even if not changed externally
-            _selectedEncoding = GetEncodingFromIndex( _selectedEncodingIndex );
+            EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
+            _showFilterSection =
+                EditorGUILayout.Foldout( _showFilterSection, "Filter Settings", true, EditorStyles.foldout );
+
+            EditorGUILayout.EndHorizontal();
+
+            if( _showFilterSection )
+            {
+                EditorGUI.DrawRect( EditorGUILayout.BeginVertical(), new Color( 0.2f, 0.2f, 0.3f, 0.1f ) );
+                {
+                    // Field for filter tags input
+                    _filterTags = EditorGUILayout.TextField( "Filter Tags (comma separated)", _filterTags );
+                    EditorGUILayout.HelpBox( "Enter tag names separated by commas to extract specific content",
+                                             MessageType.Info );
+                }
+
+                EditorGUILayout.EndVertical();
+            }
         }
 
-        GUILayout.Space( 10 );
+        EditorGUILayout.EndVertical();
 
-        if( GUILayout.Button( "Import XML" ) )
+
+        GUILayout.Space( 5 );
+
+        if( GUILayout.Button( "Import XML", GUILayout.Height( 30 ) ) )
         {
-            string[] tags = _filterTags.Split( new char[] {','}, System.StringSplitOptions.RemoveEmptyEntries );
+            string[] tags =
+                _filterTags.Split( new char[] {','}, System.StringSplitOptions.RemoveEmptyEntries );
+
             for( int i = 0; i < tags.Length; i++ )
             {
                 tags[i] = tags[i].Trim();
@@ -127,8 +241,19 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
         GUILayout.Space( 10 );
-        GUILayout.Label( $"Imported Sentences: {Strings.Count}", EditorStyles.boldLabel );
-        DrawSentencesList( Strings );
+
+        // Imported Sentences Section
+        EditorGUILayout.BeginVertical( GUI.skin.box );
+        {
+            GUILayout.Label( $"Imported Sentences: {Sentences.Count}", EditorStyles.boldLabel );
+            _isDrawSentences = GUILayout.Toggle( _isDrawSentences, "Show lines" );
+            if( _isDrawSentences )
+            {
+                DrawSentencesList( Sentences );
+            }
+        }
+
+        EditorGUILayout.EndVertical();
     }
 
 
@@ -147,8 +272,8 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
         GUILayout.Space( 10 );
-        GUILayout.Label( $"Filtered Sentences: {FilteredStrings.Count}", EditorStyles.boldLabel );
-        DrawSentencesList( FilteredStrings );
+        GUILayout.Label( $"Filtered Sentences: {FilteredSentences.Count}", EditorStyles.boldLabel );
+        DrawSentencesList( FilteredSentences );
     }
 
 
@@ -168,12 +293,12 @@ public class DuplicateFinderWindow : EditorWindow
 
         if( GUILayout.Button( "Export Cleaned XML" ) )
         {
-            ExportToXML( _exportPath, FilteredStrings );
+            ExportToXML( _exportPath, FilteredSentences );
         }
 
         if( GUILayout.Button( "Export Original XML" ) )
         {
-            ExportToXML( _exportPath, Strings );
+            ExportToXML( _exportPath, Sentences );
         }
     }
 
@@ -183,18 +308,18 @@ public class DuplicateFinderWindow : EditorWindow
         GUILayout.Label( "Manual Review", EditorStyles.boldLabel );
         GUILayout.Label( "Select strings to keep (uncheck duplicates):", EditorStyles.helpBox );
 
-        if( SentenceSelection.Count != Strings.Count )
+        if( SentenceSelection.Count != Sentences.Count )
         {
-            SentenceSelection = Strings.Select( s => true ).ToList();
+            SentenceSelection = Sentences.Select( s => true ).ToList();
         }
 
         _scrollPosition = EditorGUILayout.BeginScrollView( _scrollPosition );
 
-        for( int i = 0; i < Strings.Count; i++ )
+        for( int i = 0; i < Sentences.Count; i++ )
         {
             EditorGUILayout.BeginHorizontal();
             SentenceSelection[i] = EditorGUILayout.Toggle( SentenceSelection[i], GUILayout.Width( 20 ) );
-            EditorGUILayout.LabelField( $"{i + 1}. {Strings[i]}",
+            EditorGUILayout.LabelField( $"{i + 1}. {Sentences[i]}",
                                         EditorStyles.textArea,
                                         GUILayout.Height( EditorGUIUtility.singleLineHeight * 2 ) );
 
@@ -214,7 +339,7 @@ public class DuplicateFinderWindow : EditorWindow
     {
         if( sentencesList.Count == 0 )
         {
-            EditorGUILayout.HelpBox( "No strings to display.", MessageType.Info );
+            EditorGUILayout.HelpBox( "No sentences to display.", MessageType.Info );
             return;
         }
 
@@ -243,7 +368,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         try
         {
-            Strings.Clear();
+            Sentences.Clear();
 
             // Use custom Encoder for proper encoding handling
             string xmlContent = Equals( _selectedEncoding, Encoding.Default )
@@ -270,14 +395,14 @@ public class DuplicateFinderWindow : EditorWindow
                     foreach( XmlNode node in nodes )
                     {
                         if( !string.IsNullOrEmpty( node.InnerText ) )
-                            Strings.Add( node.InnerText.Trim() );
+                            Sentences.Add( node.InnerText.Trim() );
                     }
                 }
             }
 
-            FilteredStrings = new List<string>( Strings );
+            FilteredSentences = new List<string>( Sentences );
             EditorUtility.DisplayDialog( "Success",
-                                         $"Imported {Strings.Count} strings",
+                                         $"Imported {Sentences.Count} sentences",
                                          "OK" );
         }
         catch( System.Exception e )
@@ -295,7 +420,7 @@ public class DuplicateFinderWindow : EditorWindow
         if( node.NodeType == XmlNodeType.Text
             && !string.IsNullOrEmpty( node.Value ) )
         {
-            Strings.Add( node.Value.Trim() );
+            Sentences.Add( node.Value.Trim() );
         }
 
         foreach( XmlNode child in node.ChildNodes )
@@ -442,7 +567,7 @@ public class DuplicateFinderWindow : EditorWindow
             {
                 serializer.Serialize( stream, data );
                 EditorUtility.DisplayDialog( "Success",
-                                             $"Exported {dataToExport.Count} strings",
+                                             $"Exported {dataToExport.Count} sentences",
                                              "OK" );
             }
         }
@@ -459,27 +584,27 @@ public class DuplicateFinderWindow : EditorWindow
     {
         // Placeholder for duplicate finding algorithm
         // In real implementation, complex comparison logic would be here
-        FilteredStrings = Strings.Distinct().ToList();
+        FilteredSentences = Sentences.Distinct().ToList();
         EditorUtility.DisplayDialog( "Info",
-                                     $"Found {Strings.Count - FilteredStrings.Count} duplicates",
+                                     $"Found {Sentences.Count - FilteredSentences.Count} duplicates",
                                      "OK" );
     }
 
 
     private void ApplyManualSelection()
     {
-        FilteredStrings = new List<string>();
+        FilteredSentences = new List<string>();
 
-        for( int i = 0; i < Strings.Count; i++ )
+        for( int i = 0; i < Sentences.Count; i++ )
         {
             if( SentenceSelection[i] )
             {
-                FilteredStrings.Add( Strings[i] );
+                FilteredSentences.Add( Sentences[i] );
             }
         }
 
         EditorUtility.DisplayDialog( "Success",
-                                     $"Filtered to {FilteredStrings.Count} strings",
+                                     $"Filtered to {FilteredSentences.Count} sentences",
                                      "OK" );
     }
 
