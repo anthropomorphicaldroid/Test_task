@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
@@ -19,6 +20,9 @@ public class DuplicateFinderWindow : EditorWindow
 
     [SerializeField]
     private List<bool> SentenceSelection = new List<bool>();
+
+    [SerializeField]
+    private List<ComparisonStrategy> strategies = new List<ComparisonStrategy>();
 
     private Vector2 _scrollPosition;
     private string _importPath = "";
@@ -259,12 +263,82 @@ public class DuplicateFinderWindow : EditorWindow
 
     private void DrawAnalysisTab()
     {
-        GUILayout.Label( "Analysis Settings", EditorStyles.boldLabel );
+        GUILayout.Label( "Analysis Strategies", EditorStyles.boldLabel );
 
-        _similarityThreshold = EditorGUILayout.Slider( "Similarity Threshold",
-                                                       _similarityThreshold,
-                                                       0.1f,
-                                                       1.0f );
+        // Выбор и добавление стратегий
+        EditorGUILayout.BeginHorizontal();
+        if( GUILayout.Button( "Add Strategy" ) )
+        {
+            GenericMenu menu = new GenericMenu();
+            menu.AddItem( new GUIContent( "Exact Match" ), false, () => strategies.Add( new ExactMatchStrategy() ) );
+            menu.AddItem( new GUIContent( "Levenshtein Distance" ),
+                          false,
+                          () => strategies.Add( new LevenshteinStrategy() ) );
+
+            menu.AddItem( new GUIContent( "Jaccard Similarity" ),
+                          false,
+                          () => strategies.Add( new JaccardStrategy() ) );
+
+            menu.AddItem( new GUIContent( "Cosine Similarity" ),
+                          false,
+                          () => strategies.Add( new CosineSimilarityStrategy() ) );
+
+            menu.ShowAsContext();
+        }
+
+        if( GUILayout.Button( "Clear All" ) )
+        {
+            strategies.Clear();
+        }
+
+        EditorGUILayout.EndHorizontal();
+
+        // Отображение и настройка стратегий
+        _scrollPosition = EditorGUILayout.BeginScrollView( _scrollPosition );
+
+        for( int i = 0; i < strategies.Count; i++ )
+        {
+            EditorGUILayout.BeginVertical( EditorStyles.helpBox );
+
+            EditorGUILayout.BeginHorizontal();
+            strategies[i].isEnabled = EditorGUILayout.Toggle( strategies[i].isEnabled, GUILayout.Width( 20 ) );
+            EditorGUILayout.LabelField( strategies[i].Name, EditorStyles.boldLabel );
+
+            if( GUILayout.Button( "↑", GUILayout.Width( 20 ) )
+                && i > 0 )
+            {
+                var temp = strategies[i - 1];
+                strategies[i - 1] = strategies[i];
+                strategies[i] = temp;
+            }
+
+            if( GUILayout.Button( "↓", GUILayout.Width( 20 ) )
+                && i < strategies.Count - 1 )
+            {
+                var temp = strategies[i + 1];
+                strategies[i + 1] = strategies[i];
+                strategies[i] = temp;
+            }
+
+            if( GUILayout.Button( "×", GUILayout.Width( 20 ) ) )
+            {
+                strategies.RemoveAt( i );
+                i--;
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.EndVertical();
+                continue;
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            // Отображаем настройки конкретной стратегии
+            strategies[i].DrawSettings();
+
+            EditorGUILayout.EndVertical();
+            GUILayout.Space( 5 );
+        }
+
+        EditorGUILayout.EndScrollView();
 
         if( GUILayout.Button( "Find Duplicates" ) )
         {
@@ -535,20 +609,6 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    private void CollectUniqueTags( XmlNode node, HashSet<string> uniqueTags )
-    {
-        if( node.NodeType == XmlNodeType.Element )
-        {
-            uniqueTags.Add( node.Name );
-        }
-
-        foreach( XmlNode child in node.ChildNodes )
-        {
-            CollectUniqueTags( child, uniqueTags );
-        }
-    }
-
-
     private void ExportToXML( string path, List<string> dataToExport )
     {
         if( string.IsNullOrEmpty( path ) )
@@ -582,12 +642,369 @@ public class DuplicateFinderWindow : EditorWindow
 
     private void FindDuplicates()
     {
-        // Placeholder for duplicate finding algorithm
-        // In real implementation, complex comparison logic would be here
-        FilteredSentences = Sentences.Distinct().ToList();
-        EditorUtility.DisplayDialog( "Info",
-                                     $"Found {Sentences.Count - FilteredSentences.Count} duplicates",
-                                     "OK" );
+        if( Sentences.Count == 0 )
+        {
+            EditorUtility.DisplayDialog( "Info", "No sentences to analyze", "OK" );
+            return;
+        }
+
+        if( strategies.Count == 0 )
+        {
+            EditorUtility.DisplayDialog( "Info", "No strategies selected", "OK" );
+            return;
+        }
+
+        try
+        {
+            List<string> currentResults = new List<string>( Sentences );
+
+            foreach( var strategy in strategies.Where( s => s.isEnabled ) )
+            {
+                currentResults = strategy.FindDuplicates( currentResults );
+            }
+
+            FilteredSentences = currentResults;
+            EditorUtility.DisplayDialog( "Success",
+                                         $"Filtered to {FilteredSentences.Count} sentences",
+                                         "OK" );
+        }
+        catch( Exception e )
+        {
+            EditorUtility.DisplayDialog( "Error",
+                                         $"Failed to find duplicates: {e.Message}",
+                                         "OK" );
+        }
+    }
+
+
+    public abstract class ComparisonStrategy
+    {
+        public bool isEnabled = true;
+        public abstract string Name { get; }
+        public abstract void DrawSettings();
+        public abstract List<string> FindDuplicates( List<string> sentences );
+    }
+
+
+    [Serializable]
+    public class ExactMatchStrategy : ComparisonStrategy
+    {
+        public override string Name => "Exact Match";
+
+
+        public override void DrawSettings()
+        {
+            EditorGUILayout.HelpBox( "Finds exact duplicates (case-sensitive).", MessageType.Info );
+        }
+
+
+        public override List<string> FindDuplicates( List<string> sentences )
+        {
+            return sentences.Distinct().ToList();
+        }
+    }
+
+
+    [Serializable]
+    public class LevenshteinStrategy : ComparisonStrategy
+    {
+        public float threshold = 0.8f;
+        public bool caseSensitive = false;
+
+        public override string Name => "Levenshtein Distance";
+
+
+        public override void DrawSettings()
+        {
+            threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
+            caseSensitive = EditorGUILayout.Toggle( "Case Sensitive", caseSensitive );
+            EditorGUILayout.HelpBox( "Finds similar strings based on edit distance.", MessageType.Info );
+        }
+
+
+        public override List<string> FindDuplicates( List<string> sentences )
+        {
+            if( sentences.Count <= 1 )
+                return sentences;
+
+            List<string> result = new List<string>();
+            HashSet<int> duplicates = new HashSet<int>();
+
+            for( int i = 0; i < sentences.Count; i++ )
+            {
+                if( duplicates.Contains( i ) )
+                    continue;
+
+                result.Add( sentences[i] );
+
+                for( int j = i + 1; j < sentences.Count; j++ )
+                {
+                    if( duplicates.Contains( j ) )
+                        continue;
+
+                    string a = caseSensitive ? sentences[i] : sentences[i].ToLower();
+                    string b = caseSensitive ? sentences[j] : sentences[j].ToLower();
+
+                    float similarity = CalculateLevenshteinSimilarity( a, b );
+
+                    if( similarity >= threshold )
+                    {
+                        duplicates.Add( j );
+                    }
+                }
+            }
+
+            return result;
+        }
+
+
+        private float CalculateLevenshteinSimilarity( string a, string b )
+        {
+            int[,] matrix = new int[a.Length + 1, b.Length + 1];
+
+            for( int i = 0; i <= a.Length; i++ )
+                matrix[i, 0] = i;
+
+            for( int j = 0; j <= b.Length; j++ )
+                matrix[0, j] = j;
+
+            for( int i = 1; i <= a.Length; i++ )
+            {
+                for( int j = 1; j <= b.Length; j++ )
+                {
+                    int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+
+                    matrix[i, j] = Math.Min(
+                        Math.Min( matrix[i - 1, j] + 1, matrix[i, j - 1] + 1 ),
+                        matrix[i - 1, j - 1] + cost );
+                }
+            }
+
+            int maxLength = Math.Max( a.Length, b.Length );
+            if( maxLength == 0 )
+                return 1.0f;
+
+            return 1.0f - (float) matrix[a.Length, b.Length] / maxLength;
+        }
+    }
+
+
+    [Serializable]
+    public class JaccardStrategy : ComparisonStrategy
+    {
+        public float threshold = 0.7f;
+        public int ngramSize = 2;
+
+        public override string Name => "Jaccard Similarity";
+
+
+        public override void DrawSettings()
+        {
+            threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
+            ngramSize = EditorGUILayout.IntSlider( "N-Gram Size", ngramSize, 1, 5 );
+            EditorGUILayout.HelpBox( "Finds similar strings based on word or n-gram overlap.", MessageType.Info );
+        }
+
+
+        public override List<string> FindDuplicates( List<string> sentences )
+        {
+            if( sentences.Count <= 1 )
+                return sentences;
+
+            List<string> result = new List<string>();
+            HashSet<int> duplicates = new HashSet<int>();
+            List<HashSet<string>> ngramSets = new List<HashSet<string>>();
+
+            // Создаем n-граммы для каждого предложения
+            foreach( var sentence in sentences )
+            {
+                ngramSets.Add( CreateNGrams( sentence, ngramSize ) );
+            }
+
+            for( int i = 0; i < sentences.Count; i++ )
+            {
+                if( duplicates.Contains( i ) )
+                    continue;
+
+                result.Add( sentences[i] );
+
+                for( int j = i + 1; j < sentences.Count; j++ )
+                {
+                    if( duplicates.Contains( j ) )
+                        continue;
+
+                    float similarity = CalculateJaccardSimilarity( ngramSets[i], ngramSets[j] );
+
+                    if( similarity >= threshold )
+                    {
+                        duplicates.Add( j );
+                    }
+                }
+            }
+
+            return result;
+        }
+
+
+        private HashSet<string> CreateNGrams( string text, int n )
+        {
+            HashSet<string> ngrams = new HashSet<string>();
+            string[] words = text.Split( ' ' );
+
+            for( int i = 0; i <= words.Length - n; i++ )
+            {
+                ngrams.Add( string.Join( " ", words, i, n ) );
+            }
+
+            return ngrams;
+        }
+
+
+        private float CalculateJaccardSimilarity( HashSet<string> setA, HashSet<string> setB )
+        {
+            if( setA.Count == 0
+                && setB.Count == 0 )
+                return 1.0f;
+
+            int intersection = setA.Intersect( setB ).Count();
+            int union = setA.Union( setB ).Count();
+
+            return (float) intersection / union;
+        }
+    }
+
+
+    [Serializable]
+    public class CosineSimilarityStrategy : ComparisonStrategy
+    {
+        public float threshold = 0.75f;
+        public bool useTfIdf = true;
+
+        public override string Name => "Cosine Similarity";
+
+
+        public override void DrawSettings()
+        {
+            threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
+            useTfIdf = EditorGUILayout.Toggle( "Use TF-IDF", useTfIdf );
+            EditorGUILayout.HelpBox( "Finds similar strings based on vector similarity.", MessageType.Info );
+        }
+
+
+        public override List<string> FindDuplicates( List<string> sentences )
+        {
+            if( sentences.Count <= 1 )
+                return sentences;
+
+            // Создаем словарь всех слов
+            HashSet<string> allWords = new HashSet<string>();
+            foreach( var sentence in sentences )
+            {
+                foreach( var word in Tokenize( sentence ) )
+                {
+                    allWords.Add( word );
+                }
+            }
+
+            // Создаем векторы для каждого предложения
+            List<float[]> vectors = new List<float[]>();
+            foreach( var sentence in sentences )
+            {
+                vectors.Add( CreateVector( sentence, allWords, sentences ) ); // Передаем sentences как параметр
+            }
+
+            List<string> result = new List<string>();
+            HashSet<int> duplicates = new HashSet<int>();
+
+            for( int i = 0; i < sentences.Count; i++ )
+            {
+                if( duplicates.Contains( i ) )
+                    continue;
+
+                result.Add( sentences[i] );
+
+                for( int j = i + 1; j < sentences.Count; j++ )
+                {
+                    if( duplicates.Contains( j ) )
+                        continue;
+
+                    float similarity = CalculateCosineSimilarity( vectors[i], vectors[j] );
+
+                    if( similarity >= threshold )
+                    {
+                        duplicates.Add( j );
+                    }
+                }
+            }
+
+            return result;
+        }
+
+
+        private string[] Tokenize( string text )
+        {
+            // Простая токенизация - в реальном приложении нужно добавить нормализацию
+            return text.ToLower().Split( new[] {' ', '.', ',', '!', '?'}, StringSplitOptions.RemoveEmptyEntries );
+        }
+
+
+        private float[] CreateVector( string sentence, HashSet<string> allWords, List<string> allSentences )
+        {
+            float[] vector = new float[allWords.Count];
+            var words = Tokenize( sentence );
+            var wordCounts = words.GroupBy( w => w ).ToDictionary( g => g.Key, g => g.Count() );
+
+            int index = 0;
+            foreach( var word in allWords )
+            {
+                if( wordCounts.TryGetValue( word, out int count ) )
+                {
+                    vector[index] =
+                        useTfIdf ? CalculateTfIdf( word, words, allSentences ) : count; // Используем allSentences
+                }
+
+                index++;
+            }
+
+            return vector;
+        }
+
+
+        private float CalculateTfIdf( string word, string[] words, List<string> allSentences )
+        {
+            // TF (Term Frequency)
+            float tf = (float) words.Count( w => w == word ) / words.Length;
+
+            // IDF (Inverse Document Frequency)
+            int documentsWithWord = allSentences.Count( s => Tokenize( s ).Contains( word ) );
+            float idf = (float) Math.Log( (float) allSentences.Count / (1 + documentsWithWord) );
+
+            return tf * idf;
+        }
+
+
+        private float CalculateCosineSimilarity( float[] vectorA, float[] vectorB )
+        {
+            float dotProduct = 0;
+            float magnitudeA = 0;
+            float magnitudeB = 0;
+
+            for( int i = 0; i < vectorA.Length; i++ )
+            {
+                dotProduct += vectorA[i] * vectorB[i];
+                magnitudeA += vectorA[i] * vectorA[i];
+                magnitudeB += vectorB[i] * vectorB[i];
+            }
+
+            magnitudeA = (float) Math.Sqrt( magnitudeA );
+            magnitudeB = (float) Math.Sqrt( magnitudeB );
+
+            if( magnitudeA == 0
+                || magnitudeB == 0 )
+                return 0;
+
+            return dotProduct / (magnitudeA * magnitudeB);
+        }
     }
 
 
