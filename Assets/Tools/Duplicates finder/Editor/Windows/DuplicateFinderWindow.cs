@@ -11,6 +11,7 @@ using DuplicateFinder.Data;
 
 public class DuplicateFinderWindow : EditorWindow
 {
+#region Private Members
     private List<string> _sentences = new List<string>();
     private List<string> _filteredSentences = new List<string>();
 
@@ -45,8 +46,10 @@ public class DuplicateFinderWindow : EditorWindow
     {
         "Auto", "UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"
     };
+#endregion
 
 
+#region Unity Methods
     [MenuItem( "Tools/Duplicate Finder" )]
     public static void ShowWindow()
     {
@@ -89,6 +92,7 @@ public class DuplicateFinderWindow : EditorWindow
             case 2: DrawExportTab(); break;
         }
     }
+#endregion
 
 
     private void DrawImportTab()
@@ -232,7 +236,10 @@ public class DuplicateFinderWindow : EditorWindow
                 tags[i] = tags[i].Trim();
             }
 
-            _sentences = XmlHelper.ImportFromXml( _importPath, tags, _selectedEncoding == Encoding.Default ? null : _selectedEncoding );
+            _sentences = XmlHelper.ImportFromXml( _importPath,
+                                                  tags,
+                                                  _selectedEncoding == Encoding.Default ? null : _selectedEncoding );
+
             _filteredSentences = _sentences;
             if( _sentences.Count != 0 )
             {
