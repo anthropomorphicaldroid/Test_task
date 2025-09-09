@@ -24,7 +24,13 @@ public class DuplicateFinderWindow : EditorWindow
     [SerializeField]
     private List<ComparisonStrategy> strategies = new List<ComparisonStrategy>();
 
+    [SerializeField]
+    private List<DuplicateGroup> duplicateGroups = new List<DuplicateGroup>();
+
     private Vector2 _scrollPosition;
+    private Vector2 _strategiesScrollPosition = Vector2.zero;
+    private Vector2 _duplicatesScrollPosition  = Vector2.zero;
+    
     private string _importPath = "";
     private string _exportPath = "";
     private readonly string[] _tabNames = {"Import", "Analysis", "Manual Review", "Export"};
@@ -294,7 +300,7 @@ public class DuplicateFinderWindow : EditorWindow
         EditorGUILayout.EndHorizontal();
 
         // Отображение и настройка стратегий
-        _scrollPosition = EditorGUILayout.BeginScrollView( _scrollPosition );
+        _strategiesScrollPosition = EditorGUILayout.BeginScrollView( _strategiesScrollPosition );
 
         for( int i = 0; i < strategies.Count; i++ )
         {
@@ -346,8 +352,46 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
         GUILayout.Space( 10 );
-        GUILayout.Label( $"Filtered Sentences: {FilteredSentences.Count}", EditorStyles.boldLabel );
-        DrawSentencesList( FilteredSentences );
+
+        // Duplicates Draw
+        if( duplicateGroups.Count > 0 )
+        {
+            GUILayout.Label( $"Found {duplicateGroups.Count} duplicate groups:", EditorStyles.boldLabel );
+
+            _duplicatesScrollPosition = EditorGUILayout.BeginScrollView( _duplicatesScrollPosition, GUILayout.Height( 300 ) );
+
+            for( int i = 0; i < duplicateGroups.Count; i++ )
+            {
+                EditorGUILayout.BeginVertical( EditorStyles.helpBox );
+
+                EditorGUILayout.LabelField( $"Group {i + 1} ({duplicateGroups[i].sentences.Count} sentences):",
+                                            EditorStyles.boldLabel );
+
+                // Оригинальное предложение (оранжевым)
+                var originalStyle = new GUIStyle( EditorStyles.label );
+                originalStyle.normal.textColor = new Color( 1f, 0.5f, 0f ); // Оранжевый
+
+                EditorGUILayout.LabelField( $"{duplicateGroups[i].originalSentence}", originalStyle );
+
+                // Дубликаты (фиолетовым)
+                var duplicateStyle = new GUIStyle( EditorStyles.label );
+                duplicateStyle.normal.textColor = new Color( 0.1f, 0.8f, 0.7f ); // Фиолетовый
+
+                foreach( var duplicate in duplicateGroups[i].duplicates )
+                {
+                    EditorGUILayout.LabelField( $"{duplicate}", duplicateStyle );
+                }
+
+                EditorGUILayout.EndVertical();
+                GUILayout.Space( 5 );
+            }
+
+            EditorGUILayout.EndScrollView();
+        }
+        else
+        {
+            GUILayout.Label( "No duplicates found", EditorStyles.centeredGreyMiniLabel );
+        }
     }
 
 
@@ -656,16 +700,25 @@ public class DuplicateFinderWindow : EditorWindow
 
         try
         {
-            List<string> currentResults = new List<string>( Sentences );
+            // Сбрасываем предыдущие результаты
+            duplicateGroups.Clear();
+            FilteredSentences = new List<string>( Sentences );
 
+            // Применяем стратегии последовательно
             foreach( var strategy in strategies.Where( s => s.isEnabled ) )
             {
-                currentResults = strategy.FindDuplicates( currentResults );
+                var result = strategy.FindDuplicates( FilteredSentences );
+                FilteredSentences = result.remainingSentences;
+
+                // Добавляем найденные группы дубликатов
+                foreach( var group in result.duplicateGroups )
+                {
+                    duplicateGroups.Add( group );
+                }
             }
 
-            FilteredSentences = currentResults;
             EditorUtility.DisplayDialog( "Success",
-                                         $"Filtered to {FilteredSentences.Count} sentences",
+                                         $"Found {duplicateGroups.Count} duplicate groups",
                                          "OK" );
         }
         catch( Exception e )
@@ -677,12 +730,31 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
+// Класс для хранения группы дубликатов
+    [Serializable]
+    public class DuplicateGroup
+    {
+        public string originalSentence;
+        public List<string> duplicates = new List<string>();
+        public List<string> sentences => new List<string> {originalSentence}.Concat( duplicates ).ToList();
+    }
+
+
+    // Класс для хранения результатов анализа
+    public class AnalysisResult
+    {
+        public List<string> remainingSentences;
+        public List<DuplicateGroup> duplicateGroups;
+    }
+
+
+    // Изменяем базовый класс стратегий
     public abstract class ComparisonStrategy
     {
         public bool isEnabled = true;
         public abstract string Name { get; }
         public abstract void DrawSettings();
-        public abstract List<string> FindDuplicates( List<string> sentences );
+        public abstract AnalysisResult FindDuplicates( List<string> sentences );
     }
 
 
@@ -698,9 +770,43 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
 
-        public override List<string> FindDuplicates( List<string> sentences )
+        public override AnalysisResult FindDuplicates( List<string> sentences )
         {
-            return sentences.Distinct().ToList();
+            var result = new AnalysisResult
+            {
+                remainingSentences = new List<string>(), duplicateGroups = new List<DuplicateGroup>()
+            };
+
+            var seen = new HashSet<string>();
+            var duplicates = new Dictionary<string, List<string>>();
+
+            foreach( var sentence in sentences )
+            {
+                if( seen.Contains( sentence ) )
+                {
+                    // Находим оригинал для этого дубликата
+                    var original = seen.First( s => s == sentence );
+                    if( !duplicates.ContainsKey( original ) )
+                    {
+                        duplicates[original] = new List<string>();
+                    }
+
+                    duplicates[original].Add( sentence );
+                }
+                else
+                {
+                    seen.Add( sentence );
+                    result.remainingSentences.Add( sentence );
+                }
+            }
+
+            // Создаем группы дубликатов
+            foreach( var kvp in duplicates )
+            {
+                result.duplicateGroups.Add( new DuplicateGroup {originalSentence = kvp.Key, duplicates = kvp.Value} );
+            }
+
+            return result;
         }
     }
 
@@ -722,24 +828,32 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
 
-        public override List<string> FindDuplicates( List<string> sentences )
+        public override AnalysisResult FindDuplicates( List<string> sentences )
         {
-            if( sentences.Count <= 1 )
-                return sentences;
+            var result = new AnalysisResult
+            {
+                remainingSentences = new List<string>(), duplicateGroups = new List<DuplicateGroup>()
+            };
 
-            List<string> result = new List<string>();
-            HashSet<int> duplicates = new HashSet<int>();
+            if( sentences.Count <= 1 )
+            {
+                result.remainingSentences = sentences;
+                return result;
+            }
+
+            var markedForRemoval = new HashSet<int>();
+            var duplicateGroups = new Dictionary<int, DuplicateGroup>();
 
             for( int i = 0; i < sentences.Count; i++ )
             {
-                if( duplicates.Contains( i ) )
+                if( markedForRemoval.Contains( i ) )
                     continue;
 
-                result.Add( sentences[i] );
+                result.remainingSentences.Add( sentences[i] );
 
                 for( int j = i + 1; j < sentences.Count; j++ )
                 {
-                    if( duplicates.Contains( j ) )
+                    if( markedForRemoval.Contains( j ) )
                         continue;
 
                     string a = caseSensitive ? sentences[i] : sentences[i].ToLower();
@@ -749,10 +863,20 @@ public class DuplicateFinderWindow : EditorWindow
 
                     if( similarity >= threshold )
                     {
-                        duplicates.Add( j );
+                        markedForRemoval.Add( j );
+
+                        if( !duplicateGroups.ContainsKey( i ) )
+                        {
+                            duplicateGroups[i] = new DuplicateGroup {originalSentence = sentences[i]};
+                        }
+
+                        duplicateGroups[i].duplicates.Add( sentences[j] );
                     }
                 }
             }
+
+            // Добавляем группы дубликатов в результат
+            result.duplicateGroups.AddRange( duplicateGroups.Values );
 
             return result;
         }
@@ -760,6 +884,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         private float CalculateLevenshteinSimilarity( string a, string b )
         {
+            // Реализация расчета расстояния Левенштейна
             int[,] matrix = new int[a.Length + 1, b.Length + 1];
 
             for( int i = 0; i <= a.Length; i++ )
@@ -789,11 +914,13 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
+    // Стратегия сходства Жаккара
     [Serializable]
     public class JaccardStrategy : ComparisonStrategy
     {
         public float threshold = 0.7f;
         public int ngramSize = 2;
+        public bool useWords = true;
 
         public override string Name => "Jaccard Similarity";
 
@@ -801,59 +928,105 @@ public class DuplicateFinderWindow : EditorWindow
         public override void DrawSettings()
         {
             threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
-            ngramSize = EditorGUILayout.IntSlider( "N-Gram Size", ngramSize, 1, 5 );
+            useWords = EditorGUILayout.Toggle( "Use Words (instead of n-grams)", useWords );
+
+            if( !useWords )
+            {
+                ngramSize = EditorGUILayout.IntSlider( "N-Gram Size", ngramSize, 1, 5 );
+            }
+
             EditorGUILayout.HelpBox( "Finds similar strings based on word or n-gram overlap.", MessageType.Info );
         }
 
 
-        public override List<string> FindDuplicates( List<string> sentences )
+        public override AnalysisResult FindDuplicates( List<string> sentences )
         {
+            var result = new AnalysisResult
+            {
+                remainingSentences = new List<string>(), duplicateGroups = new List<DuplicateGroup>()
+            };
+
             if( sentences.Count <= 1 )
-                return sentences;
+            {
+                result.remainingSentences = sentences;
+                return result;
+            }
 
-            List<string> result = new List<string>();
-            HashSet<int> duplicates = new HashSet<int>();
-            List<HashSet<string>> ngramSets = new List<HashSet<string>>();
-
-            // Создаем n-граммы для каждого предложения
+            // Предварительно вычисляем множества для каждого предложения
+            List<HashSet<string>> sets = new List<HashSet<string>>();
             foreach( var sentence in sentences )
             {
-                ngramSets.Add( CreateNGrams( sentence, ngramSize ) );
+                sets.Add( useWords ? CreateWordSet( sentence ) : CreateNGramSet( sentence, ngramSize ) );
             }
+
+            var markedForRemoval = new HashSet<int>();
+            var duplicateGroups = new Dictionary<int, DuplicateGroup>();
 
             for( int i = 0; i < sentences.Count; i++ )
             {
-                if( duplicates.Contains( i ) )
+                if( markedForRemoval.Contains( i ) )
                     continue;
 
-                result.Add( sentences[i] );
+                result.remainingSentences.Add( sentences[i] );
 
                 for( int j = i + 1; j < sentences.Count; j++ )
                 {
-                    if( duplicates.Contains( j ) )
+                    if( markedForRemoval.Contains( j ) )
                         continue;
 
-                    float similarity = CalculateJaccardSimilarity( ngramSets[i], ngramSets[j] );
+                    float similarity = CalculateJaccardSimilarity( sets[i], sets[j] );
 
                     if( similarity >= threshold )
                     {
-                        duplicates.Add( j );
+                        markedForRemoval.Add( j );
+
+                        if( !duplicateGroups.ContainsKey( i ) )
+                        {
+                            duplicateGroups[i] = new DuplicateGroup {originalSentence = sentences[i]};
+                        }
+
+                        duplicateGroups[i].duplicates.Add( sentences[j] );
                     }
                 }
             }
+
+            // Добавляем группы дубликатов в результат
+            result.duplicateGroups.AddRange( duplicateGroups.Values );
 
             return result;
         }
 
 
-        private HashSet<string> CreateNGrams( string text, int n )
+        private HashSet<string> CreateWordSet( string text )
         {
-            HashSet<string> ngrams = new HashSet<string>();
-            string[] words = text.Split( ' ' );
+            // Разбиваем текст на слова, удаляем пустые элементы и приводим к нижнему регистру
+            return new HashSet<string>(
+                text.Split( new[] {' ', '.', ',', '!', '?', ';', ':', '\t', '\n'},
+                            StringSplitOptions.RemoveEmptyEntries )
+                    .Select( word => word.ToLowerInvariant() )
+            );
+        }
 
+
+        private HashSet<string> CreateNGramSet( string text, int n )
+        {
+            var ngrams = new HashSet<string>();
+            var words = CreateWordSet( text ).ToArray();
+
+            // Создаем n-граммы из слов
             for( int i = 0; i <= words.Length - n; i++ )
             {
                 ngrams.Add( string.Join( " ", words, i, n ) );
+            }
+
+            // Если n-граммы не создались (мало слов), используем отдельные слова
+            if( ngrams.Count == 0
+                && words.Length > 0 )
+            {
+                foreach( var word in words )
+                {
+                    ngrams.Add( word );
+                }
             }
 
             return ngrams;
@@ -866,6 +1039,10 @@ public class DuplicateFinderWindow : EditorWindow
                 && setB.Count == 0 )
                 return 1.0f;
 
+            if( setA.Count == 0
+                || setB.Count == 0 )
+                return 0.0f;
+
             int intersection = setA.Intersect( setB ).Count();
             int union = setA.Union( setB ).Count();
 
@@ -874,6 +1051,7 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
+// Стратегия косинусного сходства
     [Serializable]
     public class CosineSimilarityStrategy : ComparisonStrategy
     {
@@ -891,12 +1069,20 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
 
-        public override List<string> FindDuplicates( List<string> sentences )
+        public override AnalysisResult FindDuplicates( List<string> sentences )
         {
-            if( sentences.Count <= 1 )
-                return sentences;
+            var result = new AnalysisResult
+            {
+                remainingSentences = new List<string>(), duplicateGroups = new List<DuplicateGroup>()
+            };
 
-            // Создаем словарь всех слов
+            if( sentences.Count <= 1 )
+            {
+                result.remainingSentences = sentences;
+                return result;
+            }
+
+            // Создаем словарь всех уникальных слов
             HashSet<string> allWords = new HashSet<string>();
             foreach( var sentence in sentences )
             {
@@ -906,36 +1092,56 @@ public class DuplicateFinderWindow : EditorWindow
                 }
             }
 
+            // Вычисляем IDF для каждого слова (если используется TF-IDF)
+            Dictionary<string, float> idfCache = new Dictionary<string, float>();
+            if( useTfIdf )
+            {
+                foreach( var word in allWords )
+                {
+                    idfCache[word] = CalculateIDF( word, sentences );
+                }
+            }
+
             // Создаем векторы для каждого предложения
             List<float[]> vectors = new List<float[]>();
             foreach( var sentence in sentences )
             {
-                vectors.Add( CreateVector( sentence, allWords, sentences ) ); // Передаем sentences как параметр
+                vectors.Add( CreateVector( sentence, allWords, idfCache, sentences ) );
             }
 
-            List<string> result = new List<string>();
-            HashSet<int> duplicates = new HashSet<int>();
+            var markedForRemoval = new HashSet<int>();
+            var duplicateGroups = new Dictionary<int, DuplicateGroup>();
 
             for( int i = 0; i < sentences.Count; i++ )
             {
-                if( duplicates.Contains( i ) )
+                if( markedForRemoval.Contains( i ) )
                     continue;
 
-                result.Add( sentences[i] );
+                result.remainingSentences.Add( sentences[i] );
 
                 for( int j = i + 1; j < sentences.Count; j++ )
                 {
-                    if( duplicates.Contains( j ) )
+                    if( markedForRemoval.Contains( j ) )
                         continue;
 
                     float similarity = CalculateCosineSimilarity( vectors[i], vectors[j] );
 
                     if( similarity >= threshold )
                     {
-                        duplicates.Add( j );
+                        markedForRemoval.Add( j );
+
+                        if( !duplicateGroups.ContainsKey( i ) )
+                        {
+                            duplicateGroups[i] = new DuplicateGroup {originalSentence = sentences[i]};
+                        }
+
+                        duplicateGroups[i].duplicates.Add( sentences[j] );
                     }
                 }
             }
+
+            // Добавляем группы дубликатов в результат
+            result.duplicateGroups.AddRange( duplicateGroups.Values );
 
             return result;
         }
@@ -943,43 +1149,62 @@ public class DuplicateFinderWindow : EditorWindow
 
         private string[] Tokenize( string text )
         {
-            // Простая токенизация - в реальном приложении нужно добавить нормализацию
-            return text.ToLower().Split( new[] {' ', '.', ',', '!', '?'}, StringSplitOptions.RemoveEmptyEntries );
+            // Токенизация текста - разбиение на слова с приведением к нижнему регистру
+            return text.ToLowerInvariant()
+                       .Split( new[] {' ', '.', ',', '!', '?', ';', ':', '\t', '\n'},
+                               StringSplitOptions.RemoveEmptyEntries );
         }
 
 
-        private float[] CreateVector( string sentence, HashSet<string> allWords, List<string> allSentences )
+        private float CalculateIDF( string word, List<string> allSentences )
+        {
+            int documentsWithWord = 0;
+            foreach( var sentence in allSentences )
+            {
+                if( Tokenize( sentence ).Contains( word ) )
+                {
+                    documentsWithWord++;
+                }
+            }
+
+            return (float) Math.Log( (float) allSentences.Count / (1 + documentsWithWord) );
+        }
+
+
+        private float[] CreateVector(
+            string sentence,
+            HashSet<string> allWords,
+            Dictionary<string, float> idfCache,
+            List<string> allSentences
+        )
         {
             float[] vector = new float[allWords.Count];
             var words = Tokenize( sentence );
-            var wordCounts = words.GroupBy( w => w ).ToDictionary( g => g.Key, g => g.Count() );
+            var wordCounts = words.GroupBy( w => w )
+                                  .ToDictionary( g => g.Key, g => g.Count() );
 
             int index = 0;
             foreach( var word in allWords )
             {
                 if( wordCounts.TryGetValue( word, out int count ) )
                 {
-                    vector[index] =
-                        useTfIdf ? CalculateTfIdf( word, words, allSentences ) : count; // Используем allSentences
+                    if( useTfIdf )
+                    {
+                        // TF (Term Frequency) * IDF (Inverse Document Frequency)
+                        float tf = (float) count / words.Length;
+                        vector[index] = tf * idfCache[word];
+                    }
+                    else
+                    {
+                        // Просто частота слова
+                        vector[index] = count;
+                    }
                 }
 
                 index++;
             }
 
             return vector;
-        }
-
-
-        private float CalculateTfIdf( string word, string[] words, List<string> allSentences )
-        {
-            // TF (Term Frequency)
-            float tf = (float) words.Count( w => w == word ) / words.Length;
-
-            // IDF (Inverse Document Frequency)
-            int documentsWithWord = allSentences.Count( s => Tokenize( s ).Contains( word ) );
-            float idf = (float) Math.Log( (float) allSentences.Count / (1 + documentsWithWord) );
-
-            return tf * idf;
         }
 
 
