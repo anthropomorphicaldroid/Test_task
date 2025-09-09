@@ -27,7 +27,8 @@ namespace DuplicateFinder.Strategies
                 NgramSize = EditorGUILayout.IntSlider( "N-Gram Size", NgramSize, 1, 5 );
             }
 
-            EditorGUILayout.HelpBox( "Finds similar strings based on word or n-gram overlap.", MessageType.Info );
+            EditorGUILayout.HelpBox( "Finds similarity based on the ratio of shared Tokens or N-grams to the total unique set.\n"
+                                     + "Detecting duplicate or near-duplicate texts, plagiarism detection.", MessageType.Info );
         }
 
 

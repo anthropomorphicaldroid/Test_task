@@ -620,7 +620,7 @@ public class DuplicateFinderWindow : EditorWindow
         float strategiesHeight = 0;
         foreach( var strategy in _strategies )
         {
-            strategiesHeight += EditorGUIUtility.singleLineHeight * 6; // Approximate height per strategy
+            strategiesHeight += EditorGUIUtility.singleLineHeight * 6.5f; // Approximate height per strategy
         }
 
         height += strategiesHeight;

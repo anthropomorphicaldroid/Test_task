@@ -19,7 +19,8 @@ namespace DuplicateFinder.Strategies
         {
             Threshold = EditorGUILayout.Slider( "Similarity Threshold", Threshold, 0.1f, 1.0f );
             CaseSensitive = EditorGUILayout.Toggle( "Case Sensitive", CaseSensitive );
-            EditorGUILayout.HelpBox( "Finds similar strings based on edit distance.", MessageType.Info );
+            EditorGUILayout.HelpBox( "Finds similar strings based on edit distance - the minimum number of edits (insertions, deletions, substitutions) to transform one string into another.\n"
+                                     + "Detecting typos, fuzzy matching.", MessageType.Info );
         }
 
 

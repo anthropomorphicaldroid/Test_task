@@ -20,7 +20,8 @@ namespace DuplicateFinder.Strategies
         public override void DrawSettings()
         {
             CaseSensitive = EditorGUILayout.Toggle( "Case Sensitive", CaseSensitive );
-            EditorGUILayout.HelpBox( "Finds exact duplicates with case sensitivity option.", MessageType.Info );
+            EditorGUILayout.HelpBox( "Finds exact duplicates with case sensitivity option.\n"
+                                     + "Checks if two strings are identical character by character", MessageType.Info );
         }
 
 

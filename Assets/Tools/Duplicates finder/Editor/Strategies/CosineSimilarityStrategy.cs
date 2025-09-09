@@ -20,7 +20,9 @@ namespace DuplicateFinder.Strategies
         {
             threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
             useTfIdf = EditorGUILayout.Toggle( "Use TF-IDF", useTfIdf );
-            EditorGUILayout.HelpBox( "Finds similar strings based on vector similarity.", MessageType.Info );
+            EditorGUILayout.HelpBox( "Compares strings as vectors of word frequencies and measures how close their directions are.\n"
+                                     + "Detecting semantically similar sentences even if the wording differs.\n"
+                                     + "TF-IDF assigns higher weight to words that are frequent in a given string but rare across the whole dataset, helping highlight the most informative terms.", MessageType.Info );
         }
 
 
