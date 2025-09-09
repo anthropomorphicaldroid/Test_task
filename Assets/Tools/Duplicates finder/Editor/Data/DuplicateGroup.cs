@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 
@@ -11,11 +10,10 @@ namespace DuplicateFinder.Data
     {
         public string OriginalSentence;
         public List<string> Duplicates = new List<string>();
-    
+        public List<bool> Selection = new List<bool>();
+
         [SerializeField]
         private bool _isActive = true;
-        [SerializeField]
-        private int _selectedOriginalIndex = 0;
 
         public bool IsActive
         {
@@ -23,12 +21,14 @@ namespace DuplicateFinder.Data
             set => _isActive = value;
         }
 
-        public int SelectedOriginalIndex
+        public List<string> Sentences
         {
-            get => _selectedOriginalIndex;
-            set => _selectedOriginalIndex = value;
+            get
+            {
+                var allSentences = new List<string> {OriginalSentence};
+                allSentences.AddRange( Duplicates );
+                return allSentences;
+            }
         }
-
-        public List<string> Sentences => new List<string> { OriginalSentence }.Concat(Duplicates).ToList();
     }
 }
