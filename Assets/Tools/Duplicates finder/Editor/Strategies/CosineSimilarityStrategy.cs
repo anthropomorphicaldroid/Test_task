@@ -10,19 +10,21 @@ namespace DuplicateFinder.Strategies
     [System.Serializable]
     public class CosineSimilarityStrategy : ComparisonStrategyBase
     {
-        public float threshold = 0.75f;
-        public bool useTfIdf = true;
+        public float Threshold = 0.75f;
+        public bool UseTfIdf = true;
 
         public override string Name => "Cosine Similarity";
 
 
         public override void DrawSettings()
         {
-            threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
-            useTfIdf = EditorGUILayout.Toggle( "Use TF-IDF", useTfIdf );
-            EditorGUILayout.HelpBox( "Compares strings as vectors of word frequencies and measures how close their directions are.\n"
-                                     + "Detecting semantically similar sentences even if the wording differs.\n"
-                                     + "TF-IDF assigns higher weight to words that are frequent in a given string but rare across the whole dataset, helping highlight the most informative terms.", MessageType.Info );
+            Threshold = EditorGUILayout.Slider( "Similarity Threshold", Threshold, 0.1f, 1.0f );
+            UseTfIdf = EditorGUILayout.Toggle( "Use TF-IDF", UseTfIdf );
+            EditorGUILayout.HelpBox(
+                "Compares strings as vectors of word frequencies and measures how close their directions are.\n"
+                + "Detecting semantically similar sentences even if the wording differs.\n"
+                + "TF-IDF assigns higher weight to words that are frequent in a given string but rare across the whole dataset, helping highlight the most informative terms.",
+                MessageType.Info );
         }
 
 
@@ -39,7 +41,7 @@ namespace DuplicateFinder.Strategies
                 return result;
             }
 
-            // Создаем словарь всех уникальных слов
+            // Create a set of all unique words
             HashSet<string> allWords = new HashSet<string>();
             foreach( var sentence in sentences )
             {
@@ -49,9 +51,9 @@ namespace DuplicateFinder.Strategies
                 }
             }
 
-            // Вычисляем IDF для каждого слова (если используется TF-IDF)
+            // Calculate IDF for each word (if TF-IDF is used)
             Dictionary<string, float> idfCache = new Dictionary<string, float>();
-            if( useTfIdf )
+            if( UseTfIdf )
             {
                 foreach( var word in allWords )
                 {
@@ -59,7 +61,7 @@ namespace DuplicateFinder.Strategies
                 }
             }
 
-            // Создаем векторы для каждого предложения
+            // Create vectors for each sentence
             List<float[]> vectors = new List<float[]>();
             foreach( var sentence in sentences )
             {
@@ -83,7 +85,7 @@ namespace DuplicateFinder.Strategies
 
                     float similarity = CalculateCosineSimilarity( vectors[i], vectors[j] );
 
-                    if( similarity >= threshold )
+                    if( similarity >= Threshold )
                     {
                         markedForRemoval.Add( j );
 
@@ -97,7 +99,7 @@ namespace DuplicateFinder.Strategies
                 }
             }
 
-            // Добавляем группы дубликатов в результат
+            // Add duplicate groups to the result
             result.DuplicateGroups.AddRange( duplicateGroups.Values );
 
             return result;
@@ -106,7 +108,7 @@ namespace DuplicateFinder.Strategies
 
         private string[] Tokenize( string text )
         {
-            // Токенизация текста - разбиение на слова с приведением к нижнему регистру
+            // Tokenize text into words and convert to lowercase
             return text.ToLowerInvariant()
                        .Split( new[] {' ', '.', ',', '!', '?', ';', ':', '\t', '\n'},
                                StringSplitOptions.RemoveEmptyEntries );
@@ -145,7 +147,7 @@ namespace DuplicateFinder.Strategies
             {
                 if( wordCounts.TryGetValue( word, out int count ) )
                 {
-                    if( useTfIdf )
+                    if( UseTfIdf )
                     {
                         // TF (Term Frequency) * IDF (Inverse Document Frequency)
                         float tf = (float) count / words.Length;
@@ -153,7 +155,7 @@ namespace DuplicateFinder.Strategies
                     }
                     else
                     {
-                        // Просто частота слова
+                        // Plain word frequency
                         vector[index] = count;
                     }
                 }

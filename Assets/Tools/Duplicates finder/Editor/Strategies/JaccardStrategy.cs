@@ -27,8 +27,10 @@ namespace DuplicateFinder.Strategies
                 NgramSize = EditorGUILayout.IntSlider( "N-Gram Size", NgramSize, 1, 5 );
             }
 
-            EditorGUILayout.HelpBox( "Finds similarity based on the ratio of shared Tokens or N-grams to the total unique set.\n"
-                                     + "Detecting duplicate or near-duplicate texts, plagiarism detection.", MessageType.Info );
+            EditorGUILayout.HelpBox(
+                "Finds similarity based on the ratio of shared Tokens or N-grams to the total unique set.\n"
+                + "Detecting duplicate or near-duplicate texts, plagiarism detection.",
+                MessageType.Info );
         }
 
 
@@ -45,7 +47,7 @@ namespace DuplicateFinder.Strategies
                 return result;
             }
 
-            // Предварительно вычисляем множества для каждого предложения
+            // Precompute sets for each sentence
             List<HashSet<string>> sets = new List<HashSet<string>>();
             foreach( var sentence in sentences )
             {
@@ -83,7 +85,7 @@ namespace DuplicateFinder.Strategies
                 }
             }
 
-            // Добавляем группы дубликатов в результат
+            // Add duplicate groups to the result
             result.DuplicateGroups.AddRange( duplicateGroups.Values );
 
             return result;
@@ -92,7 +94,7 @@ namespace DuplicateFinder.Strategies
 
         private HashSet<string> CreateWordSet( string text )
         {
-            // Разбиваем текст на слова, удаляем пустые элементы и приводим к нижнему регистру
+            // Split text into words, remove empty entries, and convert to lowercase
             return new HashSet<string>(
                 text.Split( new[] {' ', '.', ',', '!', '?', ';', ':', '\t', '\n'},
                             StringSplitOptions.RemoveEmptyEntries )
@@ -106,13 +108,13 @@ namespace DuplicateFinder.Strategies
             var ngrams = new HashSet<string>();
             var words = CreateWordSet( text ).ToArray();
 
-            // Создаем n-граммы из слов
+            // Create n-grams from words
             for( int i = 0; i <= words.Length - n; i++ )
             {
                 ngrams.Add( string.Join( " ", words, i, n ) );
             }
 
-            // Если n-граммы не создались (мало слов), используем отдельные слова
+            // If no n-grams created (too few words), fall back to individual words
             if( ngrams.Count == 0
                 && words.Length > 0 )
             {

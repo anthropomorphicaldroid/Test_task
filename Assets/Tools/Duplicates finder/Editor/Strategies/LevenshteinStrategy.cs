@@ -19,8 +19,10 @@ namespace DuplicateFinder.Strategies
         {
             Threshold = EditorGUILayout.Slider( "Similarity Threshold", Threshold, 0.1f, 1.0f );
             CaseSensitive = EditorGUILayout.Toggle( "Case Sensitive", CaseSensitive );
-            EditorGUILayout.HelpBox( "Finds similar strings based on edit distance - the minimum number of edits (insertions, deletions, substitutions) to transform one string into another.\n"
-                                     + "Detecting typos, fuzzy matching.", MessageType.Info );
+            EditorGUILayout.HelpBox(
+                "Finds similar strings based on edit distance - the minimum number of edits (insertions, deletions, substitutions) to transform one string into another.\n"
+                + "Detecting typos, fuzzy matching.",
+                MessageType.Info );
         }
 
 
@@ -71,7 +73,7 @@ namespace DuplicateFinder.Strategies
                 }
             }
 
-            // Добавляем группы дубликатов в результат
+            // Add duplicate groups to the result
             result.DuplicateGroups.AddRange( duplicateGroups.Values );
 
             return result;
@@ -80,7 +82,7 @@ namespace DuplicateFinder.Strategies
 
         private float CalculateLevenshteinSimilarity( string a, string b )
         {
-            // Реализация расчета расстояния Левенштейна
+            // Implementation of Levenshtein distance calculation
             int[,] matrix = new int[a.Length + 1, b.Length + 1];
 
             for( int i = 0; i <= a.Length; i++ )

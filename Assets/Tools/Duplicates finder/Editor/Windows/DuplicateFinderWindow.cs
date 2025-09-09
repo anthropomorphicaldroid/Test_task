@@ -41,7 +41,6 @@ public class DuplicateFinderWindow : EditorWindow
     private bool _showExportSection = true;
     private string _exportTag = "Sentence";
 
-    // Encoding options
     private readonly string[] _encodingOptions =
     {
         "Auto", "UTF-8", "Windows-1251", "Windows-1252", "Unicode", "BigEndianUnicode"
@@ -95,6 +94,7 @@ public class DuplicateFinderWindow : EditorWindow
 #endregion
 
 
+#region Draw Methods
     private void DrawImportTab()
     {
         GUILayout.Label( "Import Settings", EditorStyles.boldLabel );
@@ -257,9 +257,9 @@ public class DuplicateFinderWindow : EditorWindow
 
             if( _isDrawSentences )
             {
-                // Рассчитываем доступную высоту для списка, как во вкладке анализа
+                // Calculate available height for the list, same as in the Analysis tab
                 float availableHeight = position.height - GetImportTabNonListHeight();
-                availableHeight = Mathf.Max( 100, availableHeight ); // Минимальная высота 100px
+                availableHeight = Mathf.Max( 100, availableHeight ); // Minimum height 100px
 
                 DrawSentencesList( _sentences, availableHeight );
             }
@@ -269,49 +269,11 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    // Метод для расчета высоты всех элементов, кроме списка предложений
-    private float GetImportTabNonListHeight()
-    {
-        // Базовая высота (заголовок, отступы)
-        float height = EditorGUIUtility.singleLineHeight * 3; // "Import Settings" + отступы
-
-        // Высота секции файла
-        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
-        if( _showFileSection )
-            height += EditorGUIUtility.singleLineHeight * 2; // Поле пути + кнопка
-
-        // Высота секции кодировки
-        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
-        if( _showEncodingSection )
-            height += EditorGUIUtility.singleLineHeight * 2; // Поле выбора кодировки
-
-        // Высота секции предпросмотра
-        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
-        if( _showPreviewSection )
-            height += 200 + EditorGUIUtility.singleLineHeight * 2; // 200px для скролла + helpbox
-
-        // Высота секции фильтра
-        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
-        if( _showFilterSection )
-            height += EditorGUIUtility.singleLineHeight * 3; // Поле фильтра + helpbox
-
-        // Высота кнопки импорта и отступов
-        height += EditorGUIUtility.singleLineHeight * 4; // Кнопка + отступы
-
-        // Высота заголовка списка предложений
-        height += EditorGUIUtility.singleLineHeight * 3; // Заголовок + toggle + отступы
-
-        height += 14;
-
-        return height;
-    }
-
-
     private void DrawAnalysisTab()
     {
         GUILayout.Label( "Analysis Statistics", EditorStyles.boldLabel );
 
-        // Статистика импортированных и отфильтрованных предложений
+        // Statistics of imported and filtered sentences
         EditorGUILayout.BeginHorizontal();
         GUILayout.Label( $"Imported: {_sentences.Count}", EditorStyles.miniLabel );
         GUILayout.Label( $"Filtered: {_filteredSentences.Count}", EditorStyles.miniLabel );
@@ -321,7 +283,7 @@ public class DuplicateFinderWindow : EditorWindow
         GUILayout.Space( 10 );
         GUILayout.Label( "Analysis Strategies", EditorStyles.boldLabel );
 
-        // Выбор и добавление стратегий
+        // Selecting and adding strategies
         EditorGUILayout.BeginHorizontal();
         if( GUILayout.Button( "Add Strategy", GUILayout.Height( 30 ) ) )
         {
@@ -364,17 +326,13 @@ public class DuplicateFinderWindow : EditorWindow
             if( GUILayout.Button( "↑", GUILayout.Width( 20 ) )
                 && i > 0 )
             {
-                var temp = _strategies[i - 1];
-                _strategies[i - 1] = _strategies[i];
-                _strategies[i] = temp;
+                (_strategies[i - 1], _strategies[i]) = (_strategies[i], _strategies[i - 1]);
             }
 
             if( GUILayout.Button( "↓", GUILayout.Width( 20 ) )
                 && i < _strategies.Count - 1 )
             {
-                var temp = _strategies[i + 1];
-                _strategies[i + 1] = _strategies[i];
-                _strategies[i] = temp;
+                (_strategies[i + 1], _strategies[i]) = (_strategies[i], _strategies[i + 1]);
             }
 
             if( GUILayout.Button( "×", GUILayout.Width( 20 ) ) )
@@ -555,23 +513,10 @@ public class DuplicateFinderWindow : EditorWindow
 
         EditorGUILayout.EndScrollView();
     }
+#endregion
 
 
-    private Encoding GetEncodingFromIndex( int index )
-    {
-        switch( index )
-        {
-            case 0:  return Encoding.Default;
-            case 1:  return Encoding.UTF8;
-            case 2:  return Encoding.GetEncoding( 1251 );
-            case 3:  return Encoding.GetEncoding( 1252 );
-            case 4:  return Encoding.Unicode;
-            case 5:  return Encoding.BigEndianUnicode;
-            default: return Encoding.UTF8;
-        }
-    }
-
-
+#region Private Methods
     private void FindDuplicates()
     {
         if( _sentences.Count == 0 )
@@ -610,6 +555,59 @@ public class DuplicateFinderWindow : EditorWindow
         catch( Exception e )
         {
             EditorUtility.DisplayDialog( "Error", $"Failed to find duplicates: {e.Message}", "OK" );
+        }
+    }
+
+
+    // Method to calculate the height of all UI elements except the sentences list
+    private float GetImportTabNonListHeight()
+    {
+        // Base height (header, paddings)
+        float height = EditorGUIUtility.singleLineHeight * 3; // "Import Settings" + paddings
+
+        // File section height
+        height += EditorGUIUtility.singleLineHeight; // Section header
+        if( _showFileSection )
+            height += EditorGUIUtility.singleLineHeight * 2; // Path field + button
+
+        // Encoding section height
+        height += EditorGUIUtility.singleLineHeight; // Section header
+        if( _showEncodingSection )
+            height += EditorGUIUtility.singleLineHeight * 2; // Encoding selection field
+
+        // Preview section height
+        height += EditorGUIUtility.singleLineHeight; // Section header
+        if( _showPreviewSection )
+            height += 200 + EditorGUIUtility.singleLineHeight * 2; // 200px for scroll area + helpbox
+
+        // Filter section height
+        height += EditorGUIUtility.singleLineHeight; // Section header
+        if( _showFilterSection )
+            height += EditorGUIUtility.singleLineHeight * 3; // Поле фильтра + helpbox
+
+        // Import button and padding height
+        height += EditorGUIUtility.singleLineHeight * 4; // Button + paddings
+
+        // Sentences list header height
+        height += EditorGUIUtility.singleLineHeight * 3; // Header + toggle + paddings
+
+        height += 14;
+
+        return height;
+    }
+
+
+    private Encoding GetEncodingFromIndex( int index )
+    {
+        switch( index )
+        {
+            case 0:  return Encoding.Default;
+            case 1:  return Encoding.UTF8;
+            case 2:  return Encoding.GetEncoding( 1251 );
+            case 3:  return Encoding.GetEncoding( 1252 );
+            case 4:  return Encoding.Unicode;
+            case 5:  return Encoding.BigEndianUnicode;
+            default: return Encoding.UTF8;
         }
     }
 
@@ -659,4 +657,5 @@ public class DuplicateFinderWindow : EditorWindow
         _duplicateGroups.Clear();
         EditorUtility.DisplayDialog( "Info", "Filter cleared. Showing all imported sentences", "OK" );
     }
+#endregion
 }
