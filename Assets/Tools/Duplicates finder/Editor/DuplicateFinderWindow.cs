@@ -356,13 +356,20 @@ public class DuplicateFinderWindow : EditorWindow
         GUILayout.Space( 10 );
 
         // Duplicates Draw
+        EditorGUILayout.BeginVertical( GUI.skin.box );
+        GUILayout.Label( $"Found {duplicateGroups.Count} duplicate groups:", EditorStyles.boldLabel );
+
+        // Вычисляем доступную высоту для области дубликатов
+        float availableHeight = position.height - GetAnalysisTabNonDuplicatesHeight();
+        availableHeight = Mathf.Max( 100, availableHeight ); // Min height 100px
+
+        _duplicatesScrollPosition = EditorGUILayout.BeginScrollView(
+            _duplicatesScrollPosition,
+            GUILayout.Height( availableHeight )
+        );
+
         if( duplicateGroups.Count > 0 )
         {
-            GUILayout.Label( $"Found {duplicateGroups.Count} duplicate groups:", EditorStyles.boldLabel );
-
-            EditorGUILayout.BeginVertical( GUI.skin.box );
-            _duplicatesScrollPosition = EditorGUILayout.BeginScrollView( _duplicatesScrollPosition );
-
             for( int i = 0; i < duplicateGroups.Count; i++ )
             {
                 EditorGUILayout.BeginVertical( EditorStyles.helpBox );
@@ -388,14 +395,39 @@ public class DuplicateFinderWindow : EditorWindow
                 EditorGUILayout.EndVertical();
                 GUILayout.Space( 5 );
             }
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
         }
         else
         {
             GUILayout.Label( "No duplicates found", EditorStyles.centeredGreyMiniLabel );
         }
+
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
+    }
+
+
+// Вспомогательный метод для расчета высоты всех элементов, кроме области дубликатов
+    private float GetAnalysisTabNonDuplicatesHeight()
+    {
+        // Примерная высота элементов (может потребоваться точная настройка)
+        float height = 100; // Базовая высота (отступы, заголовок)
+
+        // Высота кнопок
+        height += EditorGUIUtility.singleLineHeight * 2;
+
+        // Высота области стратегий
+        float strategiesHeight = 0;
+        foreach( var strategy in strategies )
+        {
+            strategiesHeight += EditorGUIUtility.singleLineHeight * 4; // Примерная высота одной стратегии
+        }
+
+        height += strategiesHeight;
+
+        // Высота кнопки "Find Duplicates" и отступов
+        height += EditorGUIUtility.singleLineHeight * 3;
+
+        return height;
     }
 
 
