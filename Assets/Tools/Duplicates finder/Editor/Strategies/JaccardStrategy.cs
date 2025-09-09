@@ -10,21 +10,21 @@ namespace DuplicateFinder.Strategies
     [System.Serializable]
     public class JaccardStrategy : ComparisonStrategyBase
     {
-        public float threshold = 0.7f;
-        public int ngramSize = 2;
-        public bool useWords = true;
+        public float Threshold = 0.7f;
+        public int NgramSize = 2;
+        public bool UseWords = true;
 
         public override string Name => "Jaccard Similarity";
 
 
         public override void DrawSettings()
         {
-            threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
-            useWords = EditorGUILayout.Toggle( "Use Words (instead of n-grams)", useWords );
+            Threshold = EditorGUILayout.Slider( "Similarity Threshold", Threshold, 0.1f, 1.0f );
+            UseWords = EditorGUILayout.Toggle( "Use Words (instead of n-grams)", UseWords );
 
-            if( !useWords )
+            if( !UseWords )
             {
-                ngramSize = EditorGUILayout.IntSlider( "N-Gram Size", ngramSize, 1, 5 );
+                NgramSize = EditorGUILayout.IntSlider( "N-Gram Size", NgramSize, 1, 5 );
             }
 
             EditorGUILayout.HelpBox( "Finds similar strings based on word or n-gram overlap.", MessageType.Info );
@@ -48,7 +48,7 @@ namespace DuplicateFinder.Strategies
             List<HashSet<string>> sets = new List<HashSet<string>>();
             foreach( var sentence in sentences )
             {
-                sets.Add( useWords ? CreateWordSet( sentence ) : CreateNGramSet( sentence, ngramSize ) );
+                sets.Add( UseWords ? CreateWordSet( sentence ) : CreateNGramSet( sentence, NgramSize ) );
             }
 
             var markedForRemoval = new HashSet<int>();
@@ -68,7 +68,7 @@ namespace DuplicateFinder.Strategies
 
                     float similarity = CalculateJaccardSimilarity( sets[i], sets[j] );
 
-                    if( similarity >= threshold )
+                    if( similarity >= Threshold )
                     {
                         markedForRemoval.Add( j );
 

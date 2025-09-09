@@ -9,16 +9,16 @@ namespace DuplicateFinder.Strategies
     [System.Serializable]
     public class LevenshteinStrategy : ComparisonStrategyBase
     {
-        public float threshold = 0.8f;
-        public bool caseSensitive = false;
+        public float Threshold = 0.8f;
+        public bool CaseSensitive = false;
 
         public override string Name => "Levenshtein Distance";
 
 
         public override void DrawSettings()
         {
-            threshold = EditorGUILayout.Slider( "Similarity Threshold", threshold, 0.1f, 1.0f );
-            caseSensitive = EditorGUILayout.Toggle( "Case Sensitive", caseSensitive );
+            Threshold = EditorGUILayout.Slider( "Similarity Threshold", Threshold, 0.1f, 1.0f );
+            CaseSensitive = EditorGUILayout.Toggle( "Case Sensitive", CaseSensitive );
             EditorGUILayout.HelpBox( "Finds similar strings based on edit distance.", MessageType.Info );
         }
 
@@ -51,12 +51,12 @@ namespace DuplicateFinder.Strategies
                     if( markedForRemoval.Contains( j ) )
                         continue;
 
-                    string a = caseSensitive ? sentences[i] : sentences[i].ToLower();
-                    string b = caseSensitive ? sentences[j] : sentences[j].ToLower();
+                    string a = CaseSensitive ? sentences[i] : sentences[i].ToLower();
+                    string b = CaseSensitive ? sentences[j] : sentences[j].ToLower();
 
                     float similarity = CalculateLevenshteinSimilarity( a, b );
 
-                    if( similarity >= threshold )
+                    if( similarity >= Threshold )
                     {
                         markedForRemoval.Add( j );
 
