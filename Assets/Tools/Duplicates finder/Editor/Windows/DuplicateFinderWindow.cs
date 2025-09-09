@@ -95,7 +95,7 @@ public class DuplicateFinderWindow : EditorWindow
     {
         GUILayout.Label( "Import Settings", EditorStyles.boldLabel );
 
-        // File Selection Section
+        // File Selection Section with colored background
         EditorGUILayout.BeginVertical( GUI.skin.box );
         {
             EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
@@ -132,7 +132,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         GUILayout.Space( 5 );
 
-        // Encoding Selection Section
+        // Encoding Selection Section with colored background
         EditorGUILayout.BeginVertical( GUI.skin.box );
         {
             EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
@@ -198,7 +198,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         GUILayout.Space( 5 );
 
-        // Filter Section
+        // Filter Section with colored background
         EditorGUILayout.BeginVertical( GUI.skin.box );
         {
             EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
@@ -232,7 +232,7 @@ public class DuplicateFinderWindow : EditorWindow
                 tags[i] = tags[i].Trim();
             }
 
-            _sentences = XmlHelper.ImportFromXml( _importPath, tags, _selectedEncoding );
+            _sentences = XmlHelper.ImportFromXml( _importPath, tags, _selectedEncoding == Encoding.Default ? null : _selectedEncoding );
             _filteredSentences = _sentences;
             if( _sentences.Count != 0 )
             {
@@ -247,13 +247,56 @@ public class DuplicateFinderWindow : EditorWindow
         {
             GUILayout.Label( $"Imported Sentences: {_sentences.Count}", EditorStyles.boldLabel );
             _isDrawSentences = GUILayout.Toggle( _isDrawSentences, "Show lines" );
+
             if( _isDrawSentences )
             {
-                DrawSentencesList( _sentences );
+                // Рассчитываем доступную высоту для списка, как во вкладке анализа
+                float availableHeight = position.height - GetImportTabNonListHeight();
+                availableHeight = Mathf.Max( 100, availableHeight ); // Минимальная высота 100px
+
+                DrawSentencesList( _sentences, availableHeight );
             }
         }
 
         EditorGUILayout.EndVertical();
+    }
+
+
+    // Метод для расчета высоты всех элементов, кроме списка предложений
+    private float GetImportTabNonListHeight()
+    {
+        // Базовая высота (заголовок, отступы)
+        float height = EditorGUIUtility.singleLineHeight * 3; // "Import Settings" + отступы
+
+        // Высота секции файла
+        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
+        if( _showFileSection )
+            height += EditorGUIUtility.singleLineHeight * 2; // Поле пути + кнопка
+
+        // Высота секции кодировки
+        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
+        if( _showEncodingSection )
+            height += EditorGUIUtility.singleLineHeight * 2; // Поле выбора кодировки
+
+        // Высота секции предпросмотра
+        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
+        if( _showPreviewSection )
+            height += 200 + EditorGUIUtility.singleLineHeight * 2; // 200px для скролла + helpbox
+
+        // Высота секции фильтра
+        height += EditorGUIUtility.singleLineHeight; // Заголовок секции
+        if( _showFilterSection )
+            height += EditorGUIUtility.singleLineHeight * 3; // Поле фильтра + helpbox
+
+        // Высота кнопки импорта и отступов
+        height += EditorGUIUtility.singleLineHeight * 4; // Кнопка + отступы
+
+        // Высота заголовка списка предложений
+        height += EditorGUIUtility.singleLineHeight * 3; // Заголовок + toggle + отступы
+
+        height += 14;
+
+        return height;
     }
 
 
@@ -486,7 +529,7 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    private void DrawSentencesList( List<string> sentencesList )
+    private void DrawSentencesList( List<string> sentencesList, float height )
     {
         if( sentencesList.Count == 0 )
         {
@@ -494,7 +537,7 @@ public class DuplicateFinderWindow : EditorWindow
             return;
         }
 
-        _scrollPosition = EditorGUILayout.BeginScrollView( _scrollPosition, GUILayout.Height( 300 ) );
+        _scrollPosition = EditorGUILayout.BeginScrollView( _scrollPosition, GUILayout.Height( height ) );
 
         for( int i = 0; i < sentencesList.Count; i++ )
         {
