@@ -29,8 +29,8 @@ public class DuplicateFinderWindow : EditorWindow
 
     private Vector2 _scrollPosition;
     private Vector2 _strategiesScrollPosition = Vector2.zero;
-    private Vector2 _duplicatesScrollPosition  = Vector2.zero;
-    
+    private Vector2 _duplicatesScrollPosition = Vector2.zero;
+
     private string _importPath = "";
     private string _exportPath = "";
     private readonly string[] _tabNames = {"Import", "Analysis", "Manual Review", "Export"};
@@ -299,7 +299,8 @@ public class DuplicateFinderWindow : EditorWindow
 
         EditorGUILayout.EndHorizontal();
 
-        // Отображение и настройка стратегий
+        // Strategies draw
+        EditorGUILayout.BeginVertical( GUI.skin.box );
         _strategiesScrollPosition = EditorGUILayout.BeginScrollView( _strategiesScrollPosition );
 
         for( int i = 0; i < strategies.Count; i++ )
@@ -345,6 +346,7 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
         EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
 
         if( GUILayout.Button( "Find Duplicates" ) )
         {
@@ -358,7 +360,8 @@ public class DuplicateFinderWindow : EditorWindow
         {
             GUILayout.Label( $"Found {duplicateGroups.Count} duplicate groups:", EditorStyles.boldLabel );
 
-            _duplicatesScrollPosition = EditorGUILayout.BeginScrollView( _duplicatesScrollPosition, GUILayout.Height( 300 ) );
+            EditorGUILayout.BeginVertical( GUI.skin.box );
+            _duplicatesScrollPosition = EditorGUILayout.BeginScrollView( _duplicatesScrollPosition );
 
             for( int i = 0; i < duplicateGroups.Count; i++ )
             {
@@ -369,13 +372,13 @@ public class DuplicateFinderWindow : EditorWindow
 
                 // Оригинальное предложение (оранжевым)
                 var originalStyle = new GUIStyle( EditorStyles.label );
-                originalStyle.normal.textColor = new Color( 1f, 0.5f, 0f ); // Оранжевый
+                originalStyle.normal.textColor = new Color( 1f, 0.5f, 0f );
 
                 EditorGUILayout.LabelField( $"{duplicateGroups[i].originalSentence}", originalStyle );
 
                 // Дубликаты (фиолетовым)
                 var duplicateStyle = new GUIStyle( EditorStyles.label );
-                duplicateStyle.normal.textColor = new Color( 0.1f, 0.8f, 0.7f ); // Фиолетовый
+                duplicateStyle.normal.textColor = new Color( 0.1f, 0.8f, 0.7f );
 
                 foreach( var duplicate in duplicateGroups[i].duplicates )
                 {
@@ -387,6 +390,7 @@ public class DuplicateFinderWindow : EditorWindow
             }
 
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
         }
         else
         {
