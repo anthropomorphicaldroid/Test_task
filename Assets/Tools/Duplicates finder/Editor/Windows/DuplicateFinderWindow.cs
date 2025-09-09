@@ -329,7 +329,7 @@ public class DuplicateFinderWindow : EditorWindow
         EditorGUILayout.EndScrollView();
         EditorGUILayout.EndVertical();
 
-        if( GUILayout.Button( "Find Duplicates" ) )
+        if( GUILayout.Button( "Find Duplicates", GUILayout.Height( 30 ) ) )
         {
             FindDuplicates();
         }
