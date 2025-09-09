@@ -250,9 +250,19 @@ public class DuplicateFinderWindow : EditorWindow
 
     private void DrawAnalysisTab()
     {
+        GUILayout.Label( "Analysis Statistics", EditorStyles.boldLabel );
+
+        // Статистика импортированных и отфильтрованных предложений
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label( $"Imported: {_sentences.Count}", EditorStyles.miniLabel );
+        GUILayout.Label( $"Filtered: {_filteredSentences.Count}", EditorStyles.miniLabel );
+        GUILayout.Label( $"Removed: {_sentences.Count - _filteredSentences.Count}", EditorStyles.miniLabel );
+        EditorGUILayout.EndHorizontal();
+
+        GUILayout.Space( 10 );
         GUILayout.Label( "Analysis Strategies", EditorStyles.boldLabel );
 
-        // Strategy selection and management
+        // Выбор и добавление стратегий
         EditorGUILayout.BeginHorizontal();
         if( GUILayout.Button( "Add Strategy" ) )
         {
@@ -280,7 +290,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         EditorGUILayout.EndHorizontal();
 
-        // Strategies display
+        // Strategies draw
         EditorGUILayout.BeginVertical( GUI.skin.box );
         _strategiesScrollPosition = EditorGUILayout.BeginScrollView( _strategiesScrollPosition );
 
@@ -329,14 +339,27 @@ public class DuplicateFinderWindow : EditorWindow
         EditorGUILayout.EndScrollView();
         EditorGUILayout.EndVertical();
 
-        if( GUILayout.Button( "Find Duplicates", GUILayout.Height( 30 ) ) )
+        EditorGUILayout.BeginHorizontal();
+        if( GUILayout.Button( "Find Duplicates" ) )
         {
             FindDuplicates();
         }
 
+        if( GUILayout.Button( "Apply Filter" ) )
+        {
+            ApplyFilter();
+        }
+
+        if( GUILayout.Button( "Clear Filter" ) )
+        {
+            ClearFilter();
+        }
+
+        EditorGUILayout.EndHorizontal();
+
         GUILayout.Space( 10 );
 
-        // Duplicates display
+        // Duplicates Draw
         EditorGUILayout.BeginVertical( GUI.skin.box );
         GUILayout.Label( $"Found {_duplicateGroups.Count} duplicate groups:", EditorStyles.boldLabel );
 
@@ -360,7 +383,7 @@ public class DuplicateFinderWindow : EditorWindow
 
                 // Original sentence (orange)
                 var originalStyle = new GUIStyle( EditorStyles.label );
-                originalStyle.normal.textColor = new Color( 1f, 0.6f, 0f );
+                originalStyle.normal.textColor = new Color( 1f, 0.5f, 0f );
                 EditorGUILayout.LabelField( $"{_duplicateGroups[i].OriginalSentence}", originalStyle );
 
                 // Duplicates (teal)
@@ -526,7 +549,7 @@ public class DuplicateFinderWindow : EditorWindow
         float strategiesHeight = 0;
         foreach( var strategy in _strategies )
         {
-            strategiesHeight += EditorGUIUtility.singleLineHeight * 4; // Approximate height per strategy
+            strategiesHeight += EditorGUIUtility.singleLineHeight * 6; // Approximate height per strategy
         }
 
         height += strategiesHeight;
@@ -535,5 +558,27 @@ public class DuplicateFinderWindow : EditorWindow
         height += EditorGUIUtility.singleLineHeight * 3;
 
         return height;
+    }
+
+
+    private void ApplyFilter()
+    {
+        if( _filteredSentences.Count == _sentences.Count )
+        {
+            EditorUtility.DisplayDialog( "Info", "No changes to apply - filter is the same as original", "OK" );
+            return;
+        }
+
+        _sentences = new List<string>( _filteredSentences );
+        _duplicateGroups.Clear();
+        EditorUtility.DisplayDialog( "Success", $"Applied filter. Now have {_sentences.Count} sentences", "OK" );
+    }
+
+
+    private void ClearFilter()
+    {
+        _filteredSentences = new List<string>( _sentences );
+        _duplicateGroups.Clear();
+        EditorUtility.DisplayDialog( "Info", "Filter cleared. Showing all imported sentences", "OK" );
     }
 }
