@@ -393,22 +393,62 @@ public class DuplicateFinderWindow : EditorWindow
         {
             for( int i = 0; i < _duplicateGroups.Count; i++ )
             {
+                var group = _duplicateGroups[i];
+
                 EditorGUILayout.BeginVertical( EditorStyles.helpBox );
 
-                EditorGUILayout.LabelField( $"Group {i + 1} ({_duplicateGroups[i].Sentences.Count} sentences):",
+                // Header with toggle
+                EditorGUILayout.BeginHorizontal();
+                group.IsActive = EditorGUILayout.Toggle( group.IsActive, GUILayout.Width( 20 ) );
+                EditorGUILayout.LabelField( $"Group {i + 1} ({group.Sentences.Count} sentences):",
                                             EditorStyles.boldLabel );
 
-                // Original sentence (orange)
-                var originalStyle = new GUIStyle( EditorStyles.label );
-                originalStyle.normal.textColor = new Color( 1f, 0.5f, 0f );
-                EditorGUILayout.LabelField( $"{_duplicateGroups[i].OriginalSentence}", originalStyle );
+                EditorGUILayout.EndHorizontal();
 
-                // Duplicates (teal)
-                var duplicateStyle = new GUIStyle( EditorStyles.label );
-                duplicateStyle.normal.textColor = new Color( 0.1f, 0.8f, 0.7f );
-                foreach( var duplicate in _duplicateGroups[i].Duplicates )
+                if( group.IsActive )
                 {
-                    EditorGUILayout.LabelField( $"{duplicate}", duplicateStyle );
+                    // Original sentence (orange)
+                    var originalStyle = new GUIStyle( EditorStyles.label );
+                    originalStyle.normal.textColor = new Color( 1f, 0.5f, 0f );
+
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField( "Original: ", GUILayout.Width( 60 ) );
+
+                    if( GUILayout.Button( group.OriginalSentence,
+                                          originalStyle,
+                                          GUILayout.Height( EditorGUIUtility.singleLineHeight * 2 ) ) )
+                    {
+                        // Reset to default original
+                        group.SelectedOriginalIndex = 0;
+                        UpdateGroupOriginal( group );
+                    }
+
+                    EditorGUILayout.EndHorizontal();
+
+                    // Duplicates (purple)
+                    var duplicateStyle = new GUIStyle( EditorStyles.label );
+                    duplicateStyle.normal.textColor = new Color( 0.5f, 0f, 0.5f );
+
+                    for( int j = 0; j < group.Duplicates.Count; j++ )
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField( "Duplicate: ", GUILayout.Width( 60 ) );
+
+                        if( GUILayout.Button( group.Duplicates[j],
+                                              duplicateStyle,
+                                              GUILayout.Height( EditorGUIUtility.singleLineHeight * 2 ) ) )
+                        {
+                            // Set this duplicate as new original
+                            group.SelectedOriginalIndex = j + 1;
+                            UpdateGroupOriginal( group );
+                        }
+
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox( "Group is disabled - will be ignored in export", MessageType.Info );
                 }
 
                 EditorGUILayout.EndVertical();
@@ -637,17 +677,65 @@ public class DuplicateFinderWindow : EditorWindow
     }
 
 
-    private void ApplyFilter()
+    // Helper method to update group original based on selected index
+    private void UpdateGroupOriginal( DuplicateGroup group )
     {
-        if( _filteredSentences.Count == _sentences.Count )
+        if( group.SelectedOriginalIndex == 0 )
         {
-            EditorUtility.DisplayDialog( "Info", "No changes to apply - filter is the same as original", "OK" );
+            // Already using default original
             return;
         }
 
-        _sentences = new List<string>( _filteredSentences );
-        _duplicateGroups.Clear();
-        EditorUtility.DisplayDialog( "Success", $"Applied filter. Now have {_sentences.Count} sentences", "OK" );
+        // Swap original and duplicate
+        var newOriginal = group.Duplicates[group.SelectedOriginalIndex - 1];
+        group.Duplicates[group.SelectedOriginalIndex - 1] = group.OriginalSentence;
+        group.OriginalSentence = newOriginal;
+        group.SelectedOriginalIndex = 0;
+    }
+
+
+    private void ApplyFilter()
+    {
+        try
+        {
+            var sentencesToKeep = new List<string>();
+            var sentencesToRemove = new HashSet<string>();
+
+            // Add all non-duplicate sentences
+            sentencesToKeep.AddRange(_filteredSentences);
+
+            // Process duplicate groups
+            foreach (var group in _duplicateGroups)
+            {
+                if (group.IsActive)
+                {
+                    // Keep only the selected original
+                    sentencesToKeep.Add(group.OriginalSentence);
+                    
+                    // Mark all duplicates for removal
+                    foreach (var duplicate in group.Duplicates)
+                    {
+                        sentencesToRemove.Add(duplicate);
+                    }
+                }
+                else
+                {
+                    // Keep all sentences from inactive groups
+                    sentencesToKeep.AddRange(group.Sentences);
+                }
+            }
+
+            // Remove duplicates from sentences to keep
+            _filteredSentences = sentencesToKeep.Where(s => !sentencesToRemove.Contains(s)).ToList();
+            _sentences = new List<string>( _filteredSentences );
+            EditorUtility.DisplayDialog("Success", 
+                                        $"Applied filter. Now have {_filteredSentences.Count} sentences", "OK");
+        }
+        catch (Exception ex)
+        {
+            EditorUtility.DisplayDialog("Error", 
+                                        $"Failed to apply filter: {ex.Message}", "OK");
+        }
     }
 
 
