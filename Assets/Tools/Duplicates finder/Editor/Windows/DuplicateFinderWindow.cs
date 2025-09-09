@@ -2,7 +2,6 @@ using System;
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using DuplicateFinder.Utilities;
@@ -14,7 +13,6 @@ public class DuplicateFinderWindow : EditorWindow
 {
     private List<string> _sentences = new List<string>();
     private List<string> _filteredSentences = new List<string>();
-    private List<bool> _sentenceSelection = new List<bool>();
 
     private List<ComparisonStrategyBase> _strategies = new List<ComparisonStrategyBase>();
     private List<DuplicateGroup> _duplicateGroups = new List<DuplicateGroup>();
@@ -32,11 +30,15 @@ public class DuplicateFinderWindow : EditorWindow
     private Vector2 _structureScrollPosition;
     private int _selectedEncodingIndex = 0;
     private Encoding _selectedEncoding = Encoding.Default;
+
     private bool _showFileSection = true;
     private bool _showEncodingSection;
     private bool _showFilterSection;
     private bool _showPreviewSection;
     private bool _isDrawSentences;
+
+    private bool _showExportSection = true;
+    private string _exportTag = "Sentence";
 
     // Encoding options
     private readonly string[] _encodingOptions =
@@ -60,6 +62,7 @@ public class DuplicateFinderWindow : EditorWindow
         _showFilterSection = PlayerPrefs.GetInt( "DuplicateFinder.showFilterSection" ) == 1;
         _showPreviewSection = PlayerPrefs.GetInt( "DuplicateFinder.showPreviewSection" ) == 1;
         _isDrawSentences = PlayerPrefs.GetInt( "DuplicateFinder.isDrawSentences" ) == 1;
+        _showExportSection = PlayerPrefs.GetInt( "DuplicateFinder.showExportSection" ) == 1;
     }
 
 
@@ -71,12 +74,13 @@ public class DuplicateFinderWindow : EditorWindow
         PlayerPrefs.SetInt( "DuplicateFinder.showFilterSection", _showFilterSection ? 1 : 0 );
         PlayerPrefs.SetInt( "DuplicateFinder.showPreviewSection", _showPreviewSection ? 1 : 0 );
         PlayerPrefs.SetInt( "DuplicateFinder.isDrawSentences", _isDrawSentences ? 1 : 0 );
+        PlayerPrefs.SetInt( "DuplicateFinder.showExportSection", _showExportSection ? 1 : 0 );
     }
 
 
     private void OnGUI()
     {
-        _selectedTab = GUILayout.Toolbar( _selectedTab, _tabNames );
+        _selectedTab = GUILayout.Toolbar( _selectedTab, _tabNames, GUILayout.Height( 30 ) );
 
         switch( _selectedTab )
         {
@@ -228,7 +232,12 @@ public class DuplicateFinderWindow : EditorWindow
                 tags[i] = tags[i].Trim();
             }
 
-            ImportFromXML( _importPath, tags );
+            _sentences = XmlHelper.ImportFromXml( _importPath, tags, _selectedEncoding );
+            _filteredSentences = _sentences;
+            if( _sentences.Count != 0 )
+            {
+                EditorUtility.DisplayDialog( "Success", $"Imported {_sentences.Count} sentences", "OK" );
+            }
         }
 
         GUILayout.Space( 10 );
@@ -264,7 +273,7 @@ public class DuplicateFinderWindow : EditorWindow
 
         // Выбор и добавление стратегий
         EditorGUILayout.BeginHorizontal();
-        if( GUILayout.Button( "Add Strategy" ) )
+        if( GUILayout.Button( "Add Strategy", GUILayout.Height( 30 ) ) )
         {
             GenericMenu menu = new GenericMenu();
             menu.AddItem( new GUIContent( "Exact Match" ), false, () => _strategies.Add( new ExactMatchStrategy() ) );
@@ -283,7 +292,7 @@ public class DuplicateFinderWindow : EditorWindow
             menu.ShowAsContext();
         }
 
-        if( GUILayout.Button( "Clear All" ) )
+        if( GUILayout.Button( "Clear All", GUILayout.Height( 30 ) ) )
         {
             _strategies.Clear();
         }
@@ -340,17 +349,17 @@ public class DuplicateFinderWindow : EditorWindow
         EditorGUILayout.EndVertical();
 
         EditorGUILayout.BeginHorizontal();
-        if( GUILayout.Button( "Find Duplicates" ) )
+        if( GUILayout.Button( "Find Duplicates", GUILayout.Height( 30 ) ) )
         {
             FindDuplicates();
         }
 
-        if( GUILayout.Button( "Apply Filter" ) )
+        if( GUILayout.Button( "Apply Filter", GUILayout.Height( 30 ) ) )
         {
             ApplyFilter();
         }
 
-        if( GUILayout.Button( "Clear Filter" ) )
+        if( GUILayout.Button( "Clear Filter", GUILayout.Height( 30 ) ) )
         {
             ClearFilter();
         }
@@ -412,27 +421,68 @@ public class DuplicateFinderWindow : EditorWindow
     {
         GUILayout.Label( "Export Settings", EditorStyles.boldLabel );
 
+        // Export Settings Section with foldout
+        EditorGUILayout.BeginVertical( GUI.skin.box );
+        {
+            EditorGUILayout.BeginHorizontal( EditorStyles.toolbar );
+            _showExportSection =
+                EditorGUILayout.Foldout( _showExportSection, "Export Configuration", true, EditorStyles.foldout );
+
+            EditorGUILayout.EndHorizontal();
+
+            if( _showExportSection )
+            {
+                EditorGUI.DrawRect( EditorGUILayout.BeginVertical(), new Color( 0.2f, 0.3f, 0.4f, 0.1f ) );
+                {
+                    // Export tag input
+                    _exportTag = EditorGUILayout.TextField( "Export Tag Name", _exportTag );
+                    EditorGUILayout.HelpBox( "Enter the XML tag name to use for exported sentences.",
+                                             MessageType.Info );
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+        }
+
+        EditorGUILayout.EndVertical();
+
+        GUILayout.Space( 10 );
+
+
+        // File path selection
         EditorGUILayout.BeginHorizontal();
         _exportPath = EditorGUILayout.TextField( "Export Path", _exportPath );
 
         if( GUILayout.Button( "Browse", GUILayout.Width( 60 ) ) )
         {
-            _exportPath = EditorUtility.SaveFilePanel( "Save XML file", "", "sentences_cleaned.xml", "xml" );
+            _exportPath =
+                EditorUtility.SaveFilePanel( "Save XML file", "", "sentences_cleaned.xml", "xml" );
         }
 
         EditorGUILayout.EndHorizontal();
 
-        if( GUILayout.Button( "Export Cleaned XML" ) )
+        GUILayout.Space( 10 );
+
+
+        // Statistics and action buttons
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label( $"Original: {_sentences.Count}", EditorStyles.miniLabel, GUILayout.Width( 80 ) );
+        GUILayout.Label( $"Filtered: {_filteredSentences.Count}", EditorStyles.miniLabel, GUILayout.Width( 80 ) );
+        GUILayout.Label( $"Removed: {_sentences.Count - _filteredSentences.Count}",
+                         EditorStyles.miniLabel,
+                         GUILayout.Width( 80 ) );
+
+        EditorGUILayout.EndHorizontal();
+
+        GUILayout.Space( 5 );
+
+        EditorGUILayout.BeginHorizontal();
+        if( GUILayout.Button( "Export Cleaned XML", GUILayout.Height( 30 ) ) )
         {
-            XmlHelper.ExportToXml( _exportPath, _filteredSentences );
-            EditorUtility.DisplayDialog( "Success", $"Exported {_filteredSentences.Count} sentences", "OK" );
+            XmlHelper.ExportToXML( _exportPath, _filteredSentences, _exportTag );
         }
 
-        if( GUILayout.Button( "Export Original XML" ) )
-        {
-            XmlHelper.ExportToXml( _exportPath, _sentences );
-            EditorUtility.DisplayDialog( "Success", $"Exported {_sentences.Count} sentences", "OK" );
-        }
+        EditorGUILayout.EndHorizontal();
     }
 
 
@@ -454,28 +504,6 @@ public class DuplicateFinderWindow : EditorWindow
         }
 
         EditorGUILayout.EndScrollView();
-    }
-
-
-    private void ImportFromXML( string path, string[] tagsToFilter )
-    {
-        if( string.IsNullOrEmpty( path )
-            || !File.Exists( path ) )
-        {
-            EditorUtility.DisplayDialog( "Error", "Invalid file path", "OK" );
-            return;
-        }
-
-        try
-        {
-            _sentences = XmlHelper.ImportFromXml( path, tagsToFilter, _selectedEncoding );
-            _filteredSentences = new List<string>( _sentences );
-            EditorUtility.DisplayDialog( "Success", $"Imported {_sentences.Count} sentences", "OK" );
-        }
-        catch( System.Exception e )
-        {
-            EditorUtility.DisplayDialog( "Error", $"Failed to import XML: {e.Message}", "OK" );
-        }
     }
 
 
@@ -543,7 +571,7 @@ public class DuplicateFinderWindow : EditorWindow
         float height = 100; // Base height (margins, header)
 
         // Height of buttons
-        height += EditorGUIUtility.singleLineHeight * 2;
+        height += EditorGUIUtility.singleLineHeight * 3;
 
         // Height of strategies area
         float strategiesHeight = 0;
