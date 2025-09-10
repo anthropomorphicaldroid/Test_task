@@ -51,7 +51,7 @@ namespace DuplicateFinder.Strategies
                 }
             }
 
-            // Calculate IDF for each word (if TF-IDF is used)
+            // Calculate IDF for each word (if TF-IDF(term frequency–inverse document frequency) is used)
             Dictionary<string, float> idfCache = new Dictionary<string, float>();
             if( UseTfIdf )
             {

@@ -451,8 +451,7 @@ public class DuplicateFinderWindow : EditorWindow
                         var sentenceStyle = new GUIStyle( EditorStyles.label );
                         sentenceStyle.normal.textColor = group.Selection[j]
                                                              ? new Color( 1f, 0.5f, 0f )
-                                                             :                            
-                                                             new Color( 0.2f, 0.6f, 1f ); 
+                                                             : new Color( 0.2f, 0.6f, 1f );
 
                         // Make the sentence clickable
                         if( GUILayout.Button( (group.Selection[j] ? "Keep    " : "Delete  ") + group.Sentences[j],
@@ -625,17 +624,27 @@ public class DuplicateFinderWindow : EditorWindow
                 // Add found duplicate groups
                 foreach( var group in result.DuplicateGroups )
                 {
+                    // Initialize selection list for each group
+                    if( group.Selection == null )
+                    {
+                        group.Selection = new List<bool>();
+                    }
+
+                    // Ensure selection list matches sentences count
+                    while( group.Selection.Count < group.Sentences.Count )
+                    {
+                        group.Selection.Add( false );
+                    }
+
+                    // Select the first sentence by default
+                    if( group.Selection.Count > 0
+                        && !group.Selection.Any( s => s ) )
+                    {
+                        group.Selection[0] = true;
+                    }
+
                     _duplicateGroups.Add( group );
                 }
-            }
-
-            foreach( var group in _duplicateGroups )
-            {
-                if( group.Selection == null )
-                    group.Selection = new List<bool>();
-
-                if( group.Selection.Count == 0 )
-                    group.Selection.Add( true );
             }
 
             EditorUtility.DisplayDialog( "Success", $"Found {_duplicateGroups.Count} duplicate groups", "OK" );
@@ -734,6 +743,17 @@ public class DuplicateFinderWindow : EditorWindow
             // Add all non-duplicate sentences
             sentencesToKeep.AddRange( _filteredSentences );
 
+            // Create a set of all sentences that are in duplicate groups
+            var allGroupSentences = new HashSet<string>();
+            foreach( var group in _duplicateGroups )
+            {
+                allGroupSentences.UnionWith( group.Sentences );
+            }
+
+            // Remove sentences that are in any group from the non-duplicate list
+            // These will be handled by the group logic below
+            sentencesToKeep.RemoveAll( s => allGroupSentences.Contains( s ) );
+
             // Process each duplicate group
             foreach( var group in _duplicateGroups )
             {
@@ -756,9 +776,8 @@ public class DuplicateFinderWindow : EditorWindow
                 }
             }
 
-
-            // Remove duplicates while preserving order
-            _filteredSentences = sentencesToKeep.Distinct().ToList();
+            // Update the filtered sentences
+            _filteredSentences = sentencesToKeep;
             _sentences = new List<string>( _filteredSentences );
 
             EditorUtility.DisplayDialog( "Success",
