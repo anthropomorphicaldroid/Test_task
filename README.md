@@ -1,4 +1,4 @@
-T a s k   4 :   L o g ic ,   A l go r i t h m s   a n d   M a t h e m a t ic s  
+Task: Logic, Algorithms and Mathematics  
 - Create an editor script (to also work in editor mode without pressing the “Play” button) which allows 
 finding duplicates in an endless list (string[] array) of string-inputs (e.g., sentences). It is up to you how 
 you  do  this,  but  of  course  it  is  best  if  we  do  not  have  many  false  alarms,  but  also  no/less  missed 
